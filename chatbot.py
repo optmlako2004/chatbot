@@ -19,6 +19,7 @@ Utilisation :
 from __future__ import annotations
 
 import os
+import sqlite3
 from functools import lru_cache
 
 from dotenv import load_dotenv
@@ -28,6 +29,7 @@ from langchain_core.tools import tool
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.prebuilt import create_react_agent
 
 load_dotenv()
@@ -35,9 +37,10 @@ load_dotenv()
 # ---------- Configuration ----------
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "thenlper/gte-small")
 FAISS_INDEX_PATH = os.getenv("FAISS_INDEX_PATH", "faiss_index")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4"))
+CHECKPOINT_DB = os.getenv("CHECKPOINT_DB", "conversations.db")
 
 SYSTEM_PROMPT = (
     "Tu es un assistant spécialisé en éducation financière. "
@@ -104,12 +107,28 @@ def web_search(query: str) -> str:
 
 # ---------- Construction de l'agent ----------
 
-def build_agent(model: str | None = None):
+def _build_checkpointer(persistent: bool):
+    """Crée le checkpointer (mémoire conversationnelle).
+
+    - persistent=True  → SQLite, l'historique survit aux redémarrages.
+    - persistent=False → InMemorySaver, plus rapide mais perdu au restart.
+    """
+    if not persistent:
+        return InMemorySaver()
+    conn = sqlite3.connect(CHECKPOINT_DB, check_same_thread=False)
+    saver = SqliteSaver(conn)
+    saver.setup()  # crée les tables si besoin (idempotent)
+    return saver
+
+
+def build_agent(model: str | None = None, persistent_memory: bool = True):
     """Construit l'agent LangGraph avec mémoire conversationnelle.
 
     Args:
-        model: nom d'un modèle Ollama (ex. "llama3.2:3b"). Doit supporter le
-            tool calling natif (llama3.1+, llama3.2+, mistral-nemo, qwen2.5...).
+        model: nom d'un modèle Ollama (ex. "llama3.2:3b", "llama3.1:8b").
+            Doit supporter le tool calling natif (llama3.1+, mistral-nemo, qwen2.5...).
+        persistent_memory: si True, l'historique est stocké dans SQLite
+            (`conversations.db`) et survit aux redémarrages. Si False, RAM seulement.
 
     Returns:
         Agent LangGraph compilé. Invocable via `agent.invoke({"messages": [...]})`.
@@ -119,12 +138,11 @@ def build_agent(model: str | None = None):
         temperature=0.1,
         base_url=OLLAMA_URL,
     )
-    checkpointer = InMemorySaver()  # mémoire en RAM ; à remplacer par SQLite en prod
     return create_react_agent(
         llm,
         tools=[rag_finance, web_search],
         prompt=SYSTEM_PROMPT,
-        checkpointer=checkpointer,
+        checkpointer=_build_checkpointer(persistent_memory),
     )
 
 

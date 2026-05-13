@@ -37,12 +37,12 @@ Chatbot spécialisé en **éducation financière**, basé sur :
 
 | Brique | Outil choisi | Pourquoi |
 |---|---|---|
-| **LLM** | `llama3.2:3b` via **Ollama** | Tourne en local, gratuit, **supporte le tool calling natif** (indispensable pour l'agent). On a testé `llama3:latest` mais la v1 ne supporte pas les tools (erreur 400 d'Ollama). |
+| **LLM** | `llama3.1:8b` via **Ollama** | Tourne en local, gratuit, **supporte le tool calling natif** (indispensable pour l'agent). On a testé `llama3:latest` (v1) qui ne supporte pas les tools (erreur 400) et `llama3.2:3b` qui supporte mais hallucine trop sur les concepts financiers (« PEL = Produit d'Épargne Libanais »...). La 8B trouve le bon équilibre qualité/vitesse sur CPU. |
+| **Mémoire conversationnelle** | **SQLite** via `SqliteSaver` (LangGraph) | L'historique survit aux redémarrages du serveur. Stocké dans `conversations.db` (gitignoré). Identifié par `thread_id`. Switch possible vers `InMemorySaver` (RAM seule) via `build_agent(persistent_memory=False)`. |
 | **Framework agent** | **LangGraph** (`create_react_agent`) | Imposé par le prof (LangChain), et LangGraph est l'évolution moderne de LangChain pour les agents. Plus fiable que ReAct par prompt textuel : utilise le tool calling natif du LLM → pas d'hallucinations sur le format. |
 | **Base vectorielle** | **FAISS** (local, fichier) | Standard, rapide, pas de serveur à déployer. L'index existe déjà (`faiss_index/`, généré en TP). |
 | **Embeddings** | `thenlper/gte-small` (HuggingFace) | C'est le modèle utilisé pour générer l'index existant — on **doit** garder le même sinon les vecteurs sont incompatibles. Petit (130 MB), rapide, multilingue correct. |
 | **Recherche web** | **DuckDuckGo** (`ddgs`) | Pas de clé API requise (Tavily / SerpAPI / Bing en demandent). Cité explicitement dans le cours comme option n°1. |
-| **Mémoire** | `InMemorySaver` de LangGraph | Permet à l'agent de se souvenir des échanges précédents dans une même session (`thread_id`). Pour la prod : remplacer par un checkpointer SQLite. |
 | **API** | **FastAPI** | Async, doc auto (`/docs`), validation Pydantic. Standard moderne, mieux que Flask. |
 | **UI de test** | **Gradio** | Juste pour valider visuellement le bot. L'UI finale sera en **React** (cf. `INTEGRATION_REACT.md`). |
 | **Variables d'env** | `python-dotenv` (`.env`) | Garde les secrets hors du code et hors de git. |
@@ -53,10 +53,12 @@ Chatbot spécialisé en **éducation financière**, basé sur :
 
 ```
 SAE2/
-├── chatbot.py                  ← Module principal (agent + outils + mémoire)
+├── chatbot.py                  ← Module principal (agent + outils + mémoire SQLite)
+├── build_index.py              ← Reconstruit l'index FAISS depuis les PDFs
 ├── ui_test.py                  ← Interface Gradio de TEST (pas la finale)
 ├── api.py                      ← API REST FastAPI pour le frontend React
 ├── faiss_index/                ← Index vectoriel (gitignoré, regénérable)
+├── conversations.db            ← Mémoire SQLite (gitignoré)
 ├── finance/, *.pdf             ← Sources de données pour le RAG
 ├── .env                        ← Secrets (gitignoré)
 ├── 02_chatbot_rag_web.ipynb    ← Notebook de démo / debug
@@ -73,9 +75,12 @@ SAE2/
 ```bash
 # 1. Ollama installé + serveur lancé
 ollama serve  # à laisser tourner dans un terminal
-ollama pull llama3.2:3b
+ollama pull llama3.1:8b
 
-# 2. Venv Python + dépendances
+# 2. (Re)construire l'index FAISS si absent
+python build_index.py
+
+# 3. Venv Python + dépendances
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -138,9 +143,9 @@ LangGraph maintient l'historique des messages par `thread_id`. Côté client, il
 
 ## 🔮 Améliorations possibles
 
-- [ ] Mémoire persistante (SQLite checkpointer) au lieu de RAM
-- [ ] BDD SQLAlchemy pour stocker les utilisateurs + historiques
-- [ ] Réindexer FAISS avec un meilleur splitter (les chunks actuels sont moyens)
+- [x] ~~Mémoire persistante (SQLite checkpointer) au lieu de RAM~~ ✅ fait
+- [x] ~~Script de rebuild de l'index FAISS~~ ✅ fait (`build_index.py`)
+- [ ] BDD SQLAlchemy pour stocker les **utilisateurs** (au-delà des conversations)
 - [ ] Streaming des réponses (token par token) pour une UX plus fluide
 - [ ] Switch dynamique Ollama / Gemini via variable d'env (pour le déploiement HF Spaces qui n'a pas Ollama)
 - [ ] Voix avec Whisper (option du sujet)

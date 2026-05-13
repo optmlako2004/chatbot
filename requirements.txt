@@ -1,3 +1,4 @@
+aiosqlite==0.22.1
 ddgs==9.14.2
 duckduckgo_search==8.1.1
 faiss-cpu==1.13.2
@@ -14,13 +15,15 @@ langchain-ollama==1.1.0
 langchain-protocol==0.0.15
 langchain-text-splitters==1.1.2
 langgraph==1.1.10
-langgraph-checkpoint==4.0.3
+langgraph-checkpoint==4.1.0
+langgraph-checkpoint-sqlite==3.1.0
 langgraph-prebuilt==1.0.13
 langgraph-sdk==0.3.14
 ollama==0.6.2
 pydantic==2.12.3
 pydantic_core==2.41.4
 pydantic-settings==2.14.1
+pypdf==6.11.0
 python-dotenv==1.2.2
 sentence-transformers==5.5.0
 torch==2.11.0

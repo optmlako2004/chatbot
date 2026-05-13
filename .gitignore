@@ -24,3 +24,7 @@ Thumbs.db
 
 # Logs
 *.log
+conversations.db
+*.db
+*.db-shm
+*.db-wal
