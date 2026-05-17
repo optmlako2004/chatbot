@@ -1,13 +1,43 @@
 <!doctype html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Chatbot Finance</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Voyage Assistant</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%23D97757'/></svg>" />
+<link rel="stylesheet" href="voyage-styles.css" />
+<link rel="stylesheet" href="voyage-pages.css" />
+<link rel="stylesheet" href="voyage-auth.css" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #FAF9F5; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+  #root { height: 100%; }
+</style>
+<script>
+  window.VA_CONFIG = {
+    API_BASE: 'http://localhost:8000',
+    GOOGLE_CLIENT_ID: '619435245506-8c4uab1pjkddi13tsqj5iohph4mgjl35.apps.googleusercontent.com',
+  };
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="api.js"></script>
+  <script type="text/babel" src="voyage-icons.jsx"></script>
+  <script type="text/babel" src="voyage-shared.jsx"></script>
+  <script type="text/babel" src="voyage-auth.jsx"></script>
+  <script type="text/babel" src="voyage-search.jsx"></script>
+  <script type="text/babel" src="voyage-pages.jsx"></script>
+  <script type="text/babel" src="voyage-chatbot-interactive.jsx"></script>
+  <script type="text/babel" src="voyage-prototype-app.jsx"></script>
+
+  <script type="text/babel" data-presets="react">
+    ReactDOM.createRoot(document.getElementById('root')).render(<VoyageApp />);
+  </script>
+</body>
 </html>
