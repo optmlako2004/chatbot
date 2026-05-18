@@ -389,8 +389,70 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
   const [submittingRating, setSubmittingRating] = React.useState(false);
   const [pendingDelete, setPendingDelete] = React.useState(null);
   const [deletingSession, setDeletingSession] = React.useState(false);
+  const [listening, setListening] = React.useState(false);
+  const [speakEnabled, setSpeakEnabled] = React.useState(() => {
+    try { return localStorage.getItem('va.speak') === '1'; } catch { return false; }
+  });
   const scrollRef = React.useRef(null);
   const inactivityRef = React.useRef(null);
+  const recognitionRef = React.useRef(null);
+
+  // Synthèse vocale d'un texte (lit à voix haute la dernière réponse bot)
+  const speak = React.useCallback((text) => {
+    if (!speakEnabled || !window.speechSynthesis || !text) return;
+    try {
+      window.speechSynthesis.cancel();
+      const cleaned = String(text).replace(/\*\*/g, '').replace(/`/g, '').slice(0, 500);
+      const u = new SpeechSynthesisUtterance(cleaned);
+      u.lang = 'fr-FR';
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      window.speechSynthesis.speak(u);
+    } catch {}
+  }, [speakEnabled]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem('va.speak', speakEnabled ? '1' : '0'); } catch {}
+    if (!speakEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  }, [speakEnabled]);
+
+  // Démarre/arrête la reconnaissance vocale (Web Speech API)
+  const toggleListening = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setErrorMsg('Reconnaissance vocale non supportée par ce navigateur. Utilisez Chrome.');
+      return;
+    }
+    if (listening && recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      return;
+    }
+    const rec = new SR();
+    rec.lang = 'fr-FR';
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    rec.onstart = () => setListening(true);
+    rec.onresult = (e) => {
+      let interim = '';
+      let final = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) final += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput(final || interim);
+    };
+    rec.onerror = (e) => {
+      setListening(false);
+      if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        setErrorMsg(`Reconnaissance vocale : ${e.error}`);
+      }
+    };
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    try { rec.start(); } catch (err) { setListening(false); }
+  };
 
   const now = () => {
     const d = new Date();
@@ -497,6 +559,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
       }]);
       setQuickReplies(res.quick_replies || []);
       refreshSessions();
+      speak(res.answer);
     } catch (e) {
       setErrorMsg(`Erreur : ${e.message}`);
     } finally {
@@ -646,7 +709,25 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
                 disabled={!sessionToken}
               />
               <button className="va-chat__input__btn" title="Pièce jointe" type="button"><IPaperclip size={17} /></button>
-              <button className="va-chat__input__btn" title="Dicter" type="button"><IMic size={17} /></button>
+              <button
+                className={`va-chat__input__btn ${speakEnabled ? 'is-active' : ''}`}
+                title={speakEnabled ? 'Couper la lecture vocale' : 'Activer la lecture vocale'}
+                type="button"
+                onClick={() => setSpeakEnabled((v) => !v)}
+                style={speakEnabled ? { color: 'var(--va-accent, #F5A623)' } : undefined}
+              >
+                {speakEnabled ? <IVolume size={17} /> : <IVolumeOff size={17} />}
+              </button>
+              <button
+                className={`va-chat__input__btn ${listening ? 'is-active' : ''}`}
+                title={listening ? 'Arrêter la dictée' : 'Dicter à la voix'}
+                type="button"
+                onClick={toggleListening}
+                disabled={!sessionToken}
+                style={listening ? { color: 'var(--va-accent, #F5A623)', animation: 'va-pulse 1.4s infinite' } : undefined}
+              >
+                <IMic size={17} />
+              </button>
               <button
                 className={`va-chat__input__btn va-chat__input__send ${input.trim() ? 'is-active' : ''}`}
                 title="Envoyer"

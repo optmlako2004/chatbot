@@ -98,6 +98,31 @@ def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]
         montant=f"{billet.prix_paye:.2f} EUR",
         classe=classe_label,
     )
+
+    # Indexation RAG du billet — le bot pourra le retrouver via similarité
+    try:
+        from app.services import rag
+        billet_text = (
+            f"Billet {billet.numero_billet} au nom de {user.prenom} {user.nom}. "
+            f"Trajet : {trajet.type} {trajet.compagnie}, de {trajet.depart} à {trajet.arrivee}, "
+            f"le {date_fr}. Arrivée prévue {trajet.date_arrivee.strftime('%d/%m/%Y à %H:%M')}. "
+            f"Classe {classe_label}, siège {billet.siege or 'non attribué'}. "
+            f"Prix payé : {billet.prix_paye:.2f} EUR. "
+            f"Nombre de places : {billet.nb_places}."
+        )
+        rag.index_text(
+            billet_text,
+            doc_id=f"billet:{billet.numero_billet}",
+            meta={
+                "type": "billet",
+                "source": f"Billet {billet.numero_billet}",
+                "user_id": user.id,
+                "numero_billet": billet.numero_billet,
+            },
+        )
+    except Exception:  # pragma: no cover — RAG indispo ne doit pas casser la résa
+        pass
+
     return billet
 
 

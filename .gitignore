@@ -28,3 +28,12 @@ conversations.db
 *.db
 *.db-shm
 *.db-wal
+
+# Cours / TP hors SAE
+Séance*
+sentiment-chatbot/
+/app.py
+/requirements.txt
+
+# RAG store (régénéré au démarrage)
+backend/data/rag_store.json

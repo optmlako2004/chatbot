@@ -175,6 +175,20 @@ const IPaperclip = (p) => (
     <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 1 1-2.83-2.83l8.49-8.49" />
   </VAIcon>
 );
+const IVolume = (p) => (
+  <VAIcon {...p}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+  </VAIcon>
+);
+const IVolumeOff = (p) => (
+  <VAIcon {...p}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <line x1="22" y1="9" x2="16" y2="15" />
+    <line x1="16" y1="9" x2="22" y2="15" />
+  </VAIcon>
+);
 
 /* Status / signals */
 const ICheck = (p) => (
@@ -283,6 +297,6 @@ Object.assign(window, {
   ISearch, IMapPin, ICalendar, IUsers, ISwap,
   IArrowRight, IArrowLeft, IArrowUp, IChevronRight, IChevronDown,
   ISun, IMoon, IMonitor,
-  IMessage, ISparkles, IMic, IPaperclip,
+  IMessage, ISparkles, IMic, IPaperclip, IVolume, IVolumeOff,
   ICheck, ICheckCircle, IShield, IAlert, IClock, IEdit, IHelp, IFile, IGlobe, IDot, IRefresh, ILogo, IClose, IMenu, ITrash,
 });

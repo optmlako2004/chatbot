@@ -51,20 +51,27 @@ const useAuth = () => {
         return;
       }
 
-      // Vrai flow Google Identity Services
-      window.google.accounts.id.initialize({
+      // Flow OAuth2 popup (évite FedCM qui peut être bloqué par le navigateur)
+      if (!window.google.accounts.oauth2) {
+        reject(new Error('Google OAuth2 SDK indisponible'));
+        return;
+      }
+      const tokenClient = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
-        callback: async (response) => {
+        scope: 'openid email profile',
+        callback: async (resp) => {
+          if (resp.error) { reject(new Error(resp.error)); return; }
           try {
-            // L'id_token JWT contient sub, email, name, picture
-            const payload = JSON.parse(atob(response.credential.split('.')[1]));
+            const ui = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+              headers: { Authorization: `Bearer ${resp.access_token}` },
+            }).then(r => r.json());
             const r = await window.VA_API.googleAuth({
-              google_sub: payload.sub,
-              email: payload.email,
-              name: payload.name || `${payload.given_name || ''} ${payload.family_name || ''}`.trim(),
-              given_name: payload.given_name || '',
-              family_name: payload.family_name || '',
-              picture: payload.picture || '',
+              google_sub: ui.sub,
+              email: ui.email,
+              name: ui.name || `${ui.given_name || ''} ${ui.family_name || ''}`.trim(),
+              given_name: ui.given_name || '',
+              family_name: ui.family_name || '',
+              picture: ui.picture || '',
             });
             _persist(r.token, r.user);
             resolve(r.user);
@@ -73,7 +80,7 @@ const useAuth = () => {
           }
         },
       });
-      window.google.accounts.id.prompt();
+      tokenClient.requestAccessToken();
     });
   };
 

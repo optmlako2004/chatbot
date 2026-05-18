@@ -131,25 +131,70 @@ l'utilise pour la **partie conversationnelle libre** du chatbot. Le modèle reç
 
 Voir `backend/app/services/gemini.py`.
 
-### 5.2 RAG (Retrieval-Augmented Generation) — version simplifiée
+### 5.2 RAG (Retrieval-Augmented Generation)
 
 RAG = on **récupère de l'information externe** (BDD, web, documents) avant
 d'appeler le LLM, et on l'**injecte** dans le prompt pour qu'il réponde sur du
 factuel et non d'hallucinations.
 
-Dans Voyage Assistant on a deux sources « retrieval » :
+Dans Voyage Assistant on a **trois sources** « retrieval » :
 
-- **BDD interne** — le bloc `CONTEXTE BILLET` injecté quand l'utilisateur a un
-  billet vérifié dans la session. Permet à Gemini de répondre à *« à quelle heure
-  j'arrive ? »* ou *« combien j'ai payé ? »* sans inventer
-- **Web temps réel** — DuckDuckGo via la librairie `ddgs`. Quand l'utilisateur
-  pose une question météo, visa, grève, à voir, etc., on lance une recherche et
-  on injecte les 6 premiers extraits dans le prompt Gemini
+#### 1. RAG documentaire vectoriel (CGV + billets) — `backend/app/services/rag.py`
 
-C'est un RAG « léger » : pas de base vectorielle, pas d'embeddings — l'information
-est récupérée par requête SQL ou recherche texte. Pour aller plus loin, on
-prévoit (V2) d'indexer les CGV des compagnies dans **ChromaDB** pour répondre
-finement aux questions de conditions générales.
+Le bot dispose d'une base documentaire interne indexée par **embeddings sémantiques** :
+
+- **CGV statiques** (`backend/data/cgv/`) : 3 documents Markdown couvrant
+  annulation, bagages, remboursement & assurance. Indexés au démarrage du backend.
+- **Billets utilisateur** : à chaque billet généré, son contenu textuel est
+  automatiquement indexé avec un `meta.user_id` permettant un filtrage par
+  utilisateur (un client ne voit que ses propres billets en retrieval).
+
+**Pipeline d'indexation**
+1. Lecture du document → découpage en chunks de ~400 mots avec recouvrement de 60
+2. Embedding de chaque chunk via `models/gemini-embedding-001` (Gemini API)
+3. Stockage `{doc_id, chunk_id, text, embedding, meta}` dans `data/rag_store.json`
+
+**Pipeline de recherche** (à chaque message utilisateur)
+1. Embedding de la requête (`task_type=RETRIEVAL_QUERY`)
+2. Similarité **cosinus** vs tous les chunks indexés (filtrés par user_id + CGV)
+3. Top-K (k=3) avec seuil de pertinence > 0.3
+4. Injection en bloc `CONNAISSANCES DOCUMENTAIRES` dans le prompt Gemini
+
+Exemple : *« je peux annuler 3 jours avant ? »* → embedding → match à 0.77 sur
+l'article 1 des CGV annulation → injecté → réponse fiable avec frais de 15 €
+mentionnés.
+
+#### 2. BDD interne — `CONTEXTE BILLET`
+
+Quand l'utilisateur a un billet vérifié en session, le bloc texte est injecté
+sans embedding (lookup direct par ID). Permet à Gemini de répondre à *« à quelle
+heure j'arrive ? »* ou *« combien j'ai payé ? »* avec les données de production.
+
+#### 3. Web temps réel — DuckDuckGo
+
+Via `ddgs` (multi-backend). Déclenché quand le message contient des marqueurs
+(météo, visa, grève, à voir…). Les 6 premiers extraits sont injectés dans le
+prompt avec la destination du billet en cours pour enrichir le contexte.
+
+Les trois sources sont concaténées dans l'ordre **RAG → CONTEXTE BILLET → Web**
+avant l'appel à Gemini. Le `tool_used` retourné par l'API indique quelle(s)
+source(s) ont contribué : `rag`, `web_search`, `rag+web`, ou `gemini` (aucune).
+
+### 5.2.bis Voix — Web Speech API (frontend)
+
+Le chat supporte la voix **100 % côté navigateur**, sans dépendance backend :
+
+- **Dictée** (entrée vocale) : `webkitSpeechRecognition` en `fr-FR`. Le bouton
+  micro dans la zone de saisie déclenche la transcription en temps réel,
+  remplissant l'input pour validation avant envoi.
+- **Synthèse vocale** (sortie vocale) : `window.speechSynthesis` lit
+  automatiquement les réponses du bot quand le toggle 🔊 est activé. Préférence
+  persistée dans `localStorage`.
+
+Choix techniques : Web Speech API plutôt que Whisper backend pour éviter
+l'ajout d'une dépendance lourde (~150 MB de modèle) et garder le déploiement
+léger. Limitation : nécessite Chrome / Edge (Firefox ne supporte pas encore
+SpeechRecognition).
 
 ### 5.3 Intent detection & state machine
 

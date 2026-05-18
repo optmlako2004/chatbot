@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models import Billet, ChatMessage, Reclamation, Trajet, User
-from app.services import gemini, web_search
+from app.services import gemini, rag, web_search
 from app.services.identity import verify_billet_identity
 from app.services.numeros import generate_numero_reclamation
 
@@ -596,16 +596,41 @@ def _process_message_inner(
                 used_web = True
                 web_context = web_search.format_for_prompt(results)
                 logger.info("DuckDuckGo : %d résultats injectés (query: %r)", len(results), search_query)
-        # Concatène billet_context + web_context dans l'ordre logique
-        full_context = "\n\n".join(x for x in [billet_context, web_context] if x)
+        # === RAG : recherche dans CGV + billets indexés ===
+        rag_context = ""
+        used_rag = False
+        try:
+            user_id_for_rag = user.id if user else None
+            results = rag.search(message, k=3, user_id=user_id_for_rag)
+            if results:
+                rag_context = rag.format_context(results)
+                used_rag = True
+                logger.info(
+                    "RAG : %d chunks injectés (scores %s)",
+                    len(results),
+                    [f"{r['score']:.2f}" for r in results],
+                )
+        except Exception as exc:
+            logger.warning("RAG search échouée : %s", exc)
+
+        # Concatène RAG + billet_context + web_context dans l'ordre logique
+        full_context = "\n\n".join(x for x in [rag_context, billet_context, web_context] if x)
         gem = gemini.ask(message, history=history, web_context=full_context)
         if gem:
+            if used_rag and used_web:
+                tool = "rag+web"
+            elif used_rag:
+                tool = "rag"
+            elif used_web:
+                tool = "web_search"
+            else:
+                tool = "gemini"
             return {
                 "answer": gem,
                 "quick_replies": [],
                 # On préserve last_billet_id pour la suite des questions
                 "context": {"last_billet_id": last_id} if last_id else {},
-                "tool_used": "web_search" if used_web else "gemini",
+                "tool_used": tool,
             }
         return _fallback_question(message)
 
