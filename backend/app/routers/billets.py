@@ -160,7 +160,7 @@ def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]
         to_name=f"{user.prenom} {user.nom}",
         numero_billet=billet.numero_billet,
         trajet_resume=trajet_resume,
-        chatbot_url="http://localhost:5173/assistant",
+        chatbot_url=f"{settings.frontend_url}/assistant",
         pdf_bytes=pdf_bytes,
         montant=f"{billet.prix_paye:.2f} EUR",
         classe=classe_label,

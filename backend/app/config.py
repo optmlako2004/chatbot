@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Voyage Assistant API"
     app_version: str = "0.1.0"
-    debug: bool = True
+    debug: bool = False
 
     database_url: str = "sqlite:///./voyage.db"
 
@@ -26,9 +26,11 @@ class Settings(BaseSettings):
     rag_index_dir: str = "./app/rag/store"
 
     admin_default_email: str = "admin@voyage.local"
-    admin_default_password: str = "changeme"
+    admin_default_password: str = ""
 
-    auth_secret: str = "dev-secret-change-me"
+    auth_secret: str = ""
+
+    frontend_url: str = "http://localhost:3000"
 
     # APIs externes
     pixabay_api_key: str = ""

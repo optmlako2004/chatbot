@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from sqlalchemy import func as sqlfunc
 
+from app.config import settings
 from app.models import Billet, ChatMessage, Reclamation, Route, Trajet, User
 from app.services import gemini, rag, web_search
 from app.services.identity import verify_billet_identity
@@ -592,7 +593,7 @@ def _process_message_inner(
                 to_name=f"{billet.user.prenom} {billet.user.nom}",
                 numero_billet=billet.numero_billet,
                 trajet_resume=f"{nouveau.type.capitalize()} {nouveau.compagnie} · {nouveau.depart} → {nouveau.arrivee} · {date_fr}",
-                chatbot_url="http://localhost:5173/assistant",
+                chatbot_url=f"{settings.frontend_url}/assistant",
                 pdf_bytes=pdf,
                 montant=f"{billet.prix_paye:.2f} EUR",
                 classe=nouveau.classe or "Standard",
@@ -660,7 +661,7 @@ def _process_message_inner(
                         f"{ancien_trajet.depart} → {ancien_trajet.arrivee} · "
                         f"Remboursement de {billet.prix_paye:.2f} EUR en cours"
                     ),
-                    chatbot_url="http://localhost:5173/assistant",
+                    chatbot_url=f"{settings.frontend_url}/assistant",
                     montant=f"{billet.prix_paye:.2f} EUR remboursés",
                     classe=ancien_trajet.classe or "Standard",
                 )
