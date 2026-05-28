@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import admin, auth, billets, chat, lieux, reclamations, trajets
+from app.routers import admin, auth, billets, chat, images, lieux, reclamations, stats, trajets
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s - %(message)s")
 logger = logging.getLogger(__name__)
@@ -52,4 +52,6 @@ app.include_router(trajets.router)
 app.include_router(billets.router)
 app.include_router(reclamations.router)
 app.include_router(chat.router)
+app.include_router(images.router)
+app.include_router(stats.router)
 app.include_router(admin.router)

@@ -176,6 +176,7 @@ def seed():
             date_naissance=_random_date_naissance(),
             email=f"{prenom.lower()}.{nom.lower()}{i}@example.fr",
             telephone=f"06{random.randint(10000000, 99999999)}",
+            password_hash=hash_password("test1234"),
         )
         users.append(u)
     db.add_all(users)

@@ -38,6 +38,10 @@ def start_chat(
             raise HTTPException(status_code=404, detail="Session introuvable.")
         if session.user_id and (user is None or session.user_id != user.id):
             raise HTTPException(status_code=403, detail="Accès refusé à cette session.")
+        # Relie la session anonyme à l'utilisateur connecté
+        if session.user_id is None and user is not None:
+            session.user_id = user.id
+            db.commit()
     else:
         session = ChatSession(user_id=user.id if user else None)
         db.add(session)
@@ -45,14 +49,26 @@ def start_chat(
         db.refresh(session)
 
     if not session.messages:
+        if user:
+            greeting_text = (
+                f"Bonjour {user.prenom} ! Je suis votre assistant Voyage. "
+                f"Je peux consulter vos réservations, répondre à vos questions sur vos trajets, "
+                f"ou vous aider à trouver une destination. Comment puis-je vous aider ?"
+            )
+        else:
+            greeting_text = "Bonjour ! Je suis votre assistant Voyage. Comment puis-je vous aider ?"
         greeting = ChatMessage(
             session_id=session.id,
             role="assistant",
-            content="Bonjour ! Je suis votre assistant Voyage. Comment puis-je vous aider ?",
+            content=greeting_text,
         )
         db.add(greeting)
         db.commit()
         db.refresh(greeting)
+
+    quick = QUICK_REPLIES_HOME.copy()
+    if user and len(session.messages) <= 1:
+        quick = ["Voir mes réservations", "Mon prochain voyage"] + quick
 
     last = session.messages[-1] if session.messages else greeting
     return ChatResponse(
@@ -60,7 +76,7 @@ def start_chat(
         answer=last.content,
         tools_used=[],
         message_id=last.id,
-        quick_replies=QUICK_REPLIES_HOME if len(session.messages) <= 1 else [],
+        quick_replies=quick if len(session.messages) <= 1 else [],
     )
 
 

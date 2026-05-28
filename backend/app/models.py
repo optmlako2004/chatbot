@@ -29,6 +29,26 @@ def _now() -> datetime:
 
 
 TRANSPORT_TYPES = ("avion", "train", "bateau", "bus")
+
+
+class Route(Base):
+    """Route de base sans date — sert à la génération dynamique des trajets."""
+    __tablename__ = "routes"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    type: Mapped[str] = mapped_column(SAEnum(*("avion", "train", "bateau", "bus"), name="route_type"), nullable=False, index=True)
+    depart: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    arrivee: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    depart_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    arrivee_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    compagnie: Mapped[str] = mapped_column(String(100), nullable=False)
+    duree_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_price: Mapped[float] = mapped_column(Float, nullable=False)
+    dep_heure: Mapped[int] = mapped_column(Integer, default=8)
+    dep_minute: Mapped[int] = mapped_column(Integer, default=0)
+    has_wifi: Mapped[bool] = mapped_column(default=False)
+    has_prise: Mapped[bool] = mapped_column(default=False)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
 BILLET_STATUTS = ("confirme", "annule", "utilise", "rembourse")
 TRAJET_STATUTS = ("actif", "annule", "complet")
 RECLAMATION_TYPES = ("bagage", "incident", "remboursement", "autre")

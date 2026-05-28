@@ -15,7 +15,9 @@
 </style>
 <script>
   window.VA_CONFIG = {
-    API_BASE: 'http://localhost:8000',
+    API_BASE: window.location.hostname === 'localhost'
+      ? 'http://localhost:8000'
+      : window.location.origin,
     GOOGLE_CLIENT_ID: '619435245506-8c4uab1pjkddi13tsqj5iohph4mgjl35.apps.googleusercontent.com',
   };
 </script>

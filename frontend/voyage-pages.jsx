@@ -48,14 +48,24 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
             <TripTypeTabs value={v.tripType || 'aller'} onChange={(t) => setV({ ...v, tripType: t })} />
           </div>
           <div className="va-form__row">
-            <label className="va-form__field">
+            <div className="va-form__field">
               <span>Départ</span>
-              <input value={v.depart || ''} onChange={(e) => setV({ ...v, depart: e.target.value })} placeholder="Paris" />
-            </label>
-            <label className="va-form__field">
+              <Autocomplete
+                value={v.depart || ''}
+                placeholder="Ville, gare, aéroport…"
+                onChange={(val) => setV({ ...v, depart: val })}
+                onPick={(it) => setV({ ...v, depart: it.nom })}
+              />
+            </div>
+            <div className="va-form__field">
               <span>Arrivée</span>
-              <input value={v.arrivee || ''} onChange={(e) => setV({ ...v, arrivee: e.target.value })} placeholder="Marseille" />
-            </label>
+              <Autocomplete
+                value={v.arrivee || ''}
+                placeholder="Ville, gare, aéroport…"
+                onChange={(val) => setV({ ...v, arrivee: val })}
+                onPick={(it) => setV({ ...v, arrivee: it.nom })}
+              />
+            </div>
           </div>
           <div className="va-form__row">
             <label className="va-form__field">
@@ -105,7 +115,7 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
 };
 
 const HomePage = ({ go }) => {
-  const [mode, setMode] = React.useState('plane');
+  const [mode, setMode] = React.useState('all');
   const [search, setSearch] = React.useState({
     depart: 'Paris', arrivee: 'Marseille',
     date: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -114,6 +124,14 @@ const HomePage = ({ go }) => {
     pax: { adultes: 1, enfants: 0, bebes: 0 },
   });
   const [editorOpen, setEditorOpen] = React.useState(false);
+  const [dbStats, setDbStats] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`${window.VA_CONFIG.API_BASE}/stats`)
+      .then(r => r.json())
+      .then(d => setDbStats(d))
+      .catch(() => {});
+  }, []);
 
   return (
   <div className="va-anim-in">
@@ -124,7 +142,9 @@ const HomePage = ({ go }) => {
         <em>aller cette saison&nbsp;?</em>
       </h1>
       <p className="va-hero-b__lead">
-        Avion, train, bateau, bus longue distance. Comparez 240 compagnies en un seul écran,
+        Avion, train, bateau, bus longue distance. Comparez{' '}
+        {dbStats ? dbStats.compagnies.toLocaleString('fr-FR') : '…'}{' '}
+        compagnies en un seul écran,
         gérez ensuite vos billets avec un assistant qui ne dort jamais.
       </p>
       <ModeTabs active={mode} onSelect={setMode} />
@@ -137,9 +157,9 @@ const HomePage = ({ go }) => {
         />
       </div>
       <div className="va-hero-b__stats">
-        <div><strong>8 642</strong>destinations</div>
+        <div><strong>{dbStats ? dbStats.destinations.toLocaleString('fr-FR') : '…'}</strong>destinations</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
-        <div><strong>240</strong>compagnies</div>
+        <div><strong>{dbStats ? dbStats.compagnies.toLocaleString('fr-FR') : '…'}</strong>compagnies</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
         <div><strong>2,4 min</strong>réservation moyenne</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
@@ -197,16 +217,28 @@ const HomePage = ({ go }) => {
 /* ──────────────────────────────────────────────────────────
    RÉSULTATS
    ──────────────────────────────────────────────────────── */
-const RESULTS_DATA = [
-  { id: 'r1', company: 'SNCF · TGV INOUI', class: '2nde · Loisir', depart: '06:42', arrive: '08:45', from: 'Paris G.-de-Lyon', to: 'Lyon Part-Dieu', dur: '2 h 03', stops: 'direct', price: 79, mode: 'train', tags: [{ label: 'Wi-Fi', good: false }, { label: 'Prise', good: false }, { label: 'Émission –93 %', good: true }] },
-  { id: 'r2', company: 'SNCF · TGV INOUI', class: '2nde · Loisir',  depart: '07:54', arrive: '09:53', from: 'Paris G.-de-Lyon', to: 'Lyon Part-Dieu', dur: '1 h 59', stops: 'direct', price: 89, mode: 'train', tags: [{ label: 'Wi-Fi', good: false }, { label: 'Plus rapide', good: true }] },
-  { id: 'r3', company: 'BlaBlaCar Bus', class: 'Premium',           depart: '08:15', arrive: '15:05', from: 'Paris Bercy',     to: 'Lyon Perrache', dur: '6 h 50', stops: '1 arrêt', price: 19, mode: 'bus',   tags: [{ label: 'Moins cher', good: true }, { label: 'Wi-Fi', good: false }] },
-  { id: 'r4', company: 'SNCF · OUIGO',       class: 'Standard',     depart: '10:08', arrive: '12:11', from: 'Paris G.-de-Lyon', to: 'Lyon Part-Dieu', dur: '2 h 03', stops: 'direct', price: 35, mode: 'train', tags: [{ label: 'Petit prix', good: true }] },
-  { id: 'r5', company: 'Air France',          class: 'Économique',  depart: '11:30', arrive: '12:35', from: 'Paris CDG',         to: 'Lyon LYS',       dur: '1 h 05', stops: 'direct', price: 142, mode: 'plane', tags: [{ label: 'Bagage 23 kg', good: false }] },
-  { id: 'r6', company: 'SNCF · TGV INOUI',   class: '1ère · Pro',   depart: '14:12', arrive: '16:15', from: 'Paris G.-de-Lyon', to: 'Lyon Part-Dieu', dur: '2 h 03', stops: 'direct', price: 119, mode: 'train', tags: [{ label: 'Échangeable', good: false }, { label: 'Salon', good: false }] },
-];
 
 const MODE_ICONS = { plane: IPlane, train: ITrain, ship: IShip, bus: IBus };
+
+/* Points intermédiaires sur la ligne de trajet selon le nombre d'escales */
+const StopDots = ({ stops }) => {
+  const n = stops === '2 escales' ? 2 : stops === '1 escale' ? 1 : 0;
+  if (n === 0) return null;
+  const positions = n === 1 ? ['50%'] : ['33%', '67%'];
+  return positions.map((left, i) => (
+    React.createElement('span', {
+      key: i,
+      style: {
+        position: 'absolute', top: '50%', left,
+        width: 7, height: 7, borderRadius: '50%',
+        background: 'var(--va-accent)',
+        border: '2px solid var(--va-surface)',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 2,
+      },
+    })
+  ));
+};
 
 const RouteCard = ({ r, onSelect }) => {
   const Icon = MODE_ICONS[r.mode] || ITrain;
@@ -222,8 +254,16 @@ const RouteCard = ({ r, onSelect }) => {
           <div>{r.dur}</div>
           <div className="va-route__path-line">
             <span className="va-route__path-icon"><Icon size={13} /></span>
+            <StopDots stops={r.stops} />
           </div>
-          <div>{r.stops}</div>
+          <div style={{ color: r.escales && r.escales.length > 0 ? 'var(--va-accent)' : undefined }}>
+            {r.stops}
+          </div>
+          {r.escales && r.escales.length > 0 && (
+            <div style={{ fontSize: 10, color: 'var(--va-text-muted)', marginTop: 1 }}>
+              via {r.escales.join(' · ')}
+            </div>
+          )}
         </div>
         <div className="va-route__stop va-route__stop--right">
           <div className="va-route__time">{r.arrive}</div>
@@ -270,14 +310,24 @@ const EditSearchPopover = ({ values, onClose, onApply }) => {
         <TripTypeTabs value={v.tripType || 'aller'} onChange={(t) => setV({ ...v, tripType: t })} />
       </div>
       <div className="va-edit-popover__row">
-        <label className="va-form__field">
+        <div className="va-form__field">
           <span>Départ</span>
-          <input value={v.depart || ''} onChange={(e) => setV({ ...v, depart: e.target.value })} />
-        </label>
-        <label className="va-form__field">
+          <Autocomplete
+            value={v.depart || ''}
+            placeholder="Ville, gare, aéroport…"
+            onChange={(val) => setV({ ...v, depart: val })}
+            onPick={(it) => setV({ ...v, depart: it.nom })}
+          />
+        </div>
+        <div className="va-form__field">
           <span>Arrivée</span>
-          <input value={v.arrivee || ''} onChange={(e) => setV({ ...v, arrivee: e.target.value })} />
-        </label>
+          <Autocomplete
+            value={v.arrivee || ''}
+            placeholder="Ville, gare, aéroport…"
+            onChange={(val) => setV({ ...v, arrivee: val })}
+            onPick={(it) => setV({ ...v, arrivee: it.nom })}
+          />
+        </div>
       </div>
       <div className="va-edit-popover__row">
         <label className="va-form__field">
@@ -358,7 +408,7 @@ const ResultsPage = ({ go, ctx }) => {
         }
         return data;
       })
-      .then((data) => setTrajets(data || []))
+      .then((data) => { setTrajets(data || []); setBudgetMax(null); })
       .catch(() => setTrajets([]))
       .finally(() => setLoading(false));
   }, [currentSearch.depart, currentSearch.arrivee]);
@@ -383,16 +433,19 @@ const ResultsPage = ({ go, ctx }) => {
       depart: hh(depart), arrive: hh(arrive),
       from: t.depart, to: t.arrivee,
       dur, stops: t.stops || 'direct',
+      escales: t.escales || [],
+      dureeEscaleMin: t.duree_escale_min || 0,
       price: Math.round(t.prix), mode: modeKey,
       tags,
     };
   };
 
   const [sort, setSort] = React.useState('best');
+  const [budgetMax, setBudgetMax] = React.useState(null); // null = no filter applied yet
   const initialModeKey = currentSearch.type ? MODE_API_TO_KEY[currentSearch.type] : null;
   const allModesOn = {
     train: true, plane: true, bus: true, ship: true,
-    direct: true, oneStop: true,
+    direct: true, oneStop: true, twoStops: true,
     morning: true, afternoon: true, evening: true,
   };
   const [filters, setFilters] = React.useState(() => {
@@ -400,7 +453,7 @@ const ResultsPage = ({ go, ctx }) => {
       return {
         train: initialModeKey === 'train', plane: initialModeKey === 'plane',
         bus: initialModeKey === 'bus',     ship: initialModeKey === 'ship',
-        direct: true, oneStop: true,
+        direct: true, oneStop: true, twoStops: true,
         morning: true, afternoon: true, evening: true,
       };
     }
@@ -420,21 +473,49 @@ const ResultsPage = ({ go, ctx }) => {
     if (visible === 0) setFilters(allModesOn);
   }, [loading, trajets, userTouchedFilters]);
 
+  const timeSlot = (hhmm) => {
+    const h = parseInt(hhmm.split(':')[0], 10);
+    if (h >= 6  && h < 12) return 'morning';
+    if (h >= 12 && h < 18) return 'afternoon';
+    if (h >= 18)            return 'evening';
+    return 'night';
+  };
+
   const sorted = React.useMemo(() => {
-    const src = (trajets || []).map(enrich).filter(r => filters[r.mode]);
+    const src = (trajets || []).map(enrich).filter(r => {
+      if (!filters[r.mode]) return false;
+      const slot = timeSlot(r.depart);
+      if (slot === 'morning'   && !filters.morning)   return false;
+      if (slot === 'afternoon' && !filters.afternoon) return false;
+      if (slot === 'evening'   && !filters.evening)   return false;
+      if (r.stops === 'direct'  && !filters.direct)   return false;
+      if (r.stops === '1 escale' && !filters.oneStop)  return false;
+      if (r.stops === '2 escales' && !filters.twoStops) return false;
+      if (r.stops !== 'direct' && r.stops !== '1 escale' && r.stops !== '2 escales' && !filters.oneStop) return false;
+      if (budgetMax !== null && r.price > budgetMax) return false;
+      return true;
+    });
     if (sort === 'cheap') return [...src].sort((a, b) => a.price - b.price);
     if (sort === 'fast')  return [...src].sort((a, b) => a.dur.localeCompare(b.dur));
     if (sort === 'early') return [...src].sort((a, b) => a.depart.localeCompare(b.depart));
     return src;
-  }, [sort, filters, trajets]);
+  }, [sort, filters, trajets, budgetMax]);
 
   const counts = React.useMemo(() => {
     const all = (trajets || []).map(enrich);
     return {
-      train: all.filter(r => r.mode === 'train').length,
-      plane: all.filter(r => r.mode === 'plane').length,
-      bus: all.filter(r => r.mode === 'bus').length,
-      ship: all.filter(r => r.mode === 'ship').length,
+      train:     all.filter(r => r.mode === 'train').length,
+      plane:     all.filter(r => r.mode === 'plane').length,
+      bus:       all.filter(r => r.mode === 'bus').length,
+      ship:      all.filter(r => r.mode === 'ship').length,
+      morning:   all.filter(r => timeSlot(r.depart) === 'morning').length,
+      afternoon: all.filter(r => timeSlot(r.depart) === 'afternoon').length,
+      evening:   all.filter(r => timeSlot(r.depart) === 'evening').length,
+      direct:    all.filter(r => r.stops === 'direct').length,
+      oneStop:   all.filter(r => r.stops === '1 escale').length,
+      twoStops:  all.filter(r => r.stops === '2 escales').length,
+      priceMin:  all.length ? Math.min(...all.map(r => r.price)) : 0,
+      priceMax:  all.length ? Math.max(...all.map(r => r.price)) : 9999,
     };
   }, [trajets]);
 
@@ -493,7 +574,10 @@ const ResultsPage = ({ go, ctx }) => {
       <div className="va-results">
         <aside className="va-filters">
           <div className="va-filter">
-            <div className="va-filter__title">Mode de transport <small>4</small></div>
+            <div className="va-filter__title">
+              Mode de transport
+              <small>{Object.entries(counts).filter(([k,v]) => ['train','plane','bus','ship'].includes(k) && v > 0).length}</small>
+            </div>
             <div className="va-filter__rows">
               <Checkrow label="Train"  count={counts.train} active={filters.train} onClick={() => toggleSmart('train')} />
               <Checkrow label="Avion"  count={counts.plane} active={filters.plane} onClick={() => toggleSmart('plane')} />
@@ -505,29 +589,36 @@ const ResultsPage = ({ go, ctx }) => {
           <div className="va-filter">
             <div className="va-filter__title">Budget</div>
             <div className="va-range">
-              <div className="va-range__bar">
-                <div className="va-range__fill" style={{ left: '8%', right: '22%' }}></div>
-                <div className="va-range__thumb" style={{ left: '8%' }}></div>
-                <div className="va-range__thumb" style={{ left: '78%' }}></div>
+              <input
+                type="range"
+                min={counts.priceMin}
+                max={counts.priceMax}
+                value={budgetMax !== null ? budgetMax : counts.priceMax}
+                onChange={e => setBudgetMax(Number(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--va-primary)', cursor: 'pointer' }}
+              />
+              <div className="va-range__bounds">
+                <span><strong>{counts.priceMin} €</strong></span>
+                <span><strong>{budgetMax !== null ? budgetMax : counts.priceMax} €</strong></span>
               </div>
-              <div className="va-range__bounds"><span><strong>19 €</strong></span><span><strong>119 €</strong></span></div>
             </div>
           </div>
 
           <div className="va-filter">
             <div className="va-filter__title">Horaire de départ</div>
             <div className="va-filter__rows">
-              <Checkrow label="Matin (06:00 – 12:00)"   count={4} active={filters.morning}   onClick={() => toggle('morning')} />
-              <Checkrow label="Après-midi (12:00 – 18:00)" count={2} active={filters.afternoon} onClick={() => toggle('afternoon')} />
-              <Checkrow label="Soir (18:00 – 24:00)"    count={0} active={filters.evening}   onClick={() => toggle('evening')} />
+              <Checkrow label="Matin (06:00 – 12:00)"      count={counts.morning}   active={filters.morning}   onClick={() => toggle('morning')} />
+              <Checkrow label="Après-midi (12:00 – 18:00)" count={counts.afternoon} active={filters.afternoon} onClick={() => toggle('afternoon')} />
+              <Checkrow label="Soir (18:00 – 24:00)"       count={counts.evening}   active={filters.evening}   onClick={() => toggle('evening')} />
             </div>
           </div>
 
           <div className="va-filter">
             <div className="va-filter__title">Escales</div>
             <div className="va-filter__rows">
-              <Checkrow label="Direct"           count={5} active={filters.direct}  onClick={() => toggle('direct')} />
-              <Checkrow label="1 arrêt"          count={1} active={filters.oneStop} onClick={() => toggle('oneStop')} />
+              <Checkrow label="Direct"   count={counts.direct}   active={filters.direct}   onClick={() => toggleSmart('direct')} />
+              <Checkrow label="1 escale" count={counts.oneStop}  active={filters.oneStop}  onClick={() => toggleSmart('oneStop')} />
+              <Checkrow label="2 escales" count={counts.twoStops} active={filters.twoStops} onClick={() => toggleSmart('twoStops')} />
             </div>
           </div>
         </aside>
@@ -619,7 +710,8 @@ const ResultsPage = ({ go, ctx }) => {
 const BOOKING_PHOTO = 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=1400&q=85&auto=format';
 
 const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
-  const r = (ctx && ctx.route) || RESULTS_DATA[0];
+  const r = ctx && ctx.route;
+  if (!r) { React.useEffect(() => go('home'), []); return null; }
   const Icon = MODE_ICONS[r.mode] || ITrain;
   const u = auth && auth.user;
   const sCtx = (ctx && ctx.search) || {};
@@ -628,7 +720,7 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
   const dateRetour = sCtx.dateRetour;
   const classOpts = CLASS_OPTIONS[r.mode] || CLASS_OPTIONS.train;
   const bagOpts   = BAG_OPTIONS[r.mode]   || [];
-  const [classId, setClassId] = React.useState(classOpts[0].id);
+  const [classId, setClassId] = React.useState(() => guessClassId(r.class, r.mode) || classOpts[0].id);
   const [bags, setBags] = React.useState(() => Object.fromEntries(bagOpts.map(b => [b.id, 0])));
   const totals = computeBookingTotal({ basePrice: r.price, mode: r.mode, pax, classId, bags, tripType });
   const [form, setForm] = React.useState({
@@ -736,8 +828,9 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
               </div>
               <div className="va-detailroute__sep">
                 <div>{r.dur}</div>
-                <div className="va-detailroute__sep-line"></div>
-                <div>{r.stops}</div>
+                <div className="va-detailroute__sep-line"><StopDots stops={r.stops} /></div>
+                <div style={{ color: r.escales && r.escales.length > 0 ? 'var(--va-accent)' : undefined }}>{r.stops}</div>
+                {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>via {r.escales.join(' · ')}</div>}
               </div>
               <div className="va-detailroute__stop va-detailroute__stop--right">
                 <div className="va-detailroute__time">{r.arrive}</div>
@@ -988,9 +1081,10 @@ const genTicketNum = () => {
 };
 
 const ConfirmPage = ({ go, ctx }) => {
-  const r = (ctx && ctx.route) || RESULTS_DATA[0];
-  const f = (ctx && ctx.form) || { nom: 'Moreau', prenom: 'Camille', email: 'camille.moreau@univ-amu.fr' };
-  const totals = (ctx && ctx.totals) || { total: r.price, cls: { label: r.class || 'Standard' } };
+  const r = ctx && ctx.route;
+  const f = (ctx && ctx.form) || {};
+  const totals = (ctx && ctx.totals) || (r ? { total: r.price, cls: { label: r.class || 'Standard' } } : { total: 0, cls: { label: 'Standard' } });
+  if (!r) { React.useEffect(() => go('home'), []); return null; }
   const [num] = React.useState(() => (ctx && ctx.ticketNum) || genTicketNum());
   const Icon = MODE_ICONS[r.mode] || ITrain;
   return (
@@ -1029,8 +1123,9 @@ const ConfirmPage = ({ go, ctx }) => {
                 </div>
                 <div className="va-detailroute__sep">
                   <div>{r.dur}</div>
-                  <div className="va-detailroute__sep-line"></div>
-                  <div>{r.stops}</div>
+                  <div className="va-detailroute__sep-line"><StopDots stops={r.stops} /></div>
+                  <div style={{ color: r.escales && r.escales.length > 0 ? 'var(--va-accent)' : undefined }}>{r.stops}</div>
+                  {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>via {r.escales.join(' · ')}</div>}
                 </div>
                 <div className="va-detailroute__stop va-detailroute__stop--right">
                   <div className="va-detailroute__time">{r.arrive}</div>
@@ -1089,8 +1184,47 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
   const [step, setStep] = React.useState('enter'); // enter → verify → done
   const [num, setNum] = React.useState('');
   const [id, setId] = React.useState({ nom: '', prenom: '', dob: '' });
+  const [verifying, setVerifying] = React.useState(false);
+  const [verifyError, setVerifyError] = React.useState('');
   const setField = (k) => (e) => setId((s) => ({ ...s, [k]: e.target.value }));
   const validNum = /^TRV-2026-[A-Z0-9]{6,}$/.test(num.trim().toUpperCase());
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setVerifyError('');
+    try {
+      const res = await fetch(`${window.VA_CONFIG.API_BASE}/billets/access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numero_billet: num.trim().toUpperCase(),
+          identity: { nom: id.nom, prenom: id.prenom, date_naissance: id.dob },
+        }),
+      });
+      if (!res.ok) { setVerifyError('Numéro de billet ou identité incorrects.'); return; }
+      const billet = await res.json();
+      const t = billet.trajet || {};
+      const dep = t.date_depart ? new Date(t.date_depart) : null;
+      const arr = t.date_arrivee ? new Date(t.date_arrivee) : null;
+      const hh = (d) => d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '';
+      const modeKey = { avion: 'plane', train: 'train', bateau: 'ship', bus: 'bus' }[t.type] || 'train';
+      const route = {
+        id: t.id, mode: modeKey,
+        company: t.compagnie || '', class: billet.tarif || 'Standard',
+        depart: hh(dep), arrive: hh(arr),
+        from: t.depart || '', to: t.arrivee || '',
+        price: billet.prix_paye || 0,
+        stops: t.stops || 'direct',
+      };
+      go('confirm', {
+        ticketNum: billet.numero_billet,
+        form: { nom: billet.user?.nom || id.nom, prenom: billet.user?.prenom || id.prenom, email: billet.user?.email || '' },
+        route,
+        totals: { total: billet.prix_paye, cls: { label: billet.tarif || 'Standard' } },
+      });
+    } catch { setVerifyError('Erreur de connexion au serveur.'); }
+    finally { setVerifying(false); }
+  };
 
   // Si l'utilisateur est connecté : on charge directement ses billets
   const isAuth = !!(auth && auth.isAuth);
@@ -1291,6 +1425,11 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
                   <input className="va-input va-input--with-icon" value={id.dob} onChange={setField('dob')} placeholder="JJ/MM/AAAA" />
                 </div>
               </div>
+              {verifyError && (
+                <div style={{ padding: '8px 12px', background: '#fff0f0', border: '1px solid #e53e3e', borderRadius: 8, fontSize: 13, color: '#e53e3e' }}>
+                  {verifyError}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="va-btn va-btn--ghost" style={{ flex: '0 0 auto' }} onClick={() => setStep('enter')}>
                   <IArrowLeft size={16} /> Retour
@@ -1298,9 +1437,9 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
                 <button
                   className="va-btn va-btn--primary"
                   style={{ flex: 1 }}
-                  disabled={!(id.nom && id.prenom && id.dob)}
-                  onClick={() => go('confirm', { ticketNum: num, form: { nom: id.nom, prenom: id.prenom, email: 'c.moreau@\u2026.fr' }, route: RESULTS_DATA[0] })}>
-                  Accéder à mon billet <IShield size={16} />
+                  disabled={!(id.nom && id.prenom && id.dob) || verifying}
+                  onClick={handleVerify}>
+                  {verifying ? 'Vérification…' : <><IShield size={16} /> Accéder à mon billet</>}
                 </button>
               </div>
             </div>
