@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 import unicodedata
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from threading import Lock
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
@@ -194,6 +196,40 @@ def _make_trajet_out(route: Route, date_recherche: datetime) -> TrajetOut:
 # ─── Router ───────────────────────────────────────────────────────────────────
 
 router = APIRouter(prefix="/trajets", tags=["trajets"])
+
+
+# Cache TTL en mémoire pour les recherches lourdes (vols avec escales,
+# destinations populaires). Évite de recalculer 15 s à chaque clic.
+class _TTLCache:
+    def __init__(self, ttl_seconds: float = 60.0, max_size: int = 256):
+        self.ttl = ttl_seconds
+        self.max = max_size
+        self._data: dict[Any, tuple[float, Any]] = {}
+        self._lock = Lock()
+
+    def get(self, key):
+        with self._lock:
+            entry = self._data.get(key)
+            if not entry:
+                return None
+            exp, value = entry
+            if exp < time.time():
+                self._data.pop(key, None)
+                return None
+            return value
+
+    def set(self, key, value):
+        with self._lock:
+            if len(self._data) >= self.max:
+                # purge la moitié la plus ancienne
+                oldest = sorted(self._data.items(), key=lambda kv: kv[1][0])[: self.max // 2]
+                for k, _ in oldest:
+                    self._data.pop(k, None)
+            self._data[key] = (time.time() + self.ttl, value)
+
+
+_search_cache = _TTLCache(ttl_seconds=60.0, max_size=512)
+_destinations_cache = _TTLCache(ttl_seconds=300.0, max_size=64)
 
 
 def _fr_to_en_search(term: str) -> str:
@@ -416,6 +452,11 @@ async def search_trajets(
 
     date_dt = day.replace(tzinfo=timezone.utc) if day.tzinfo is None else day
 
+    cache_key = ("search", type, (depart or "").lower().strip(), (arrivee or "").lower().strip(), date_dt.date().isoformat())
+    cached = _search_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     routes = _search_routes(db, type, depart, arrivee)
     directs = [_make_trajet_out(r, date_dt) for r in routes]
 
@@ -433,10 +474,13 @@ async def search_trajets(
         all_results = directs
 
     if not all_results:
+        _search_cache.set(cache_key, [])
         return []
 
     all_results.sort(key=lambda t: t.date_depart)
-    return all_results[:55]
+    final = all_results[:55]
+    _search_cache.set(cache_key, final)
+    return final
 
 
 import re as _re
@@ -525,6 +569,10 @@ async def get_popular_destinations(
     limit: int = Query(default=24, ge=1, le=60),
 ):
     """Mix mondial de destinations : proches, Europe, monde entier."""
+    cache_key = ("destinations", depart.lower().strip(), limit)
+    cached = _destinations_cache.get(cache_key)
+    if cached is not None:
+        return cached
     # Tierce par tranches de prix pour couvrir proche + Europe + monde
     tiers = [
         (0,    80,   6),   # proche / pas cher
@@ -565,6 +613,7 @@ async def get_popular_destinations(
         if isinstance(photo, str):
             d["photo_url"] = photo
 
+    _destinations_cache.set(cache_key, final)
     return final
 
 

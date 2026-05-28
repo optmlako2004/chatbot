@@ -11,7 +11,7 @@ from sqlalchemy import func as sqlfunc
 
 from app.config import settings
 from app.models import Billet, ChatMessage, Reclamation, Route, Trajet, User
-from app.services import gemini, rag, web_search
+from app.services import gemini, ner, rag, reranker, web_search
 from app.services.identity import verify_billet_identity
 from app.services.numeros import generate_numero_reclamation
 
@@ -460,13 +460,87 @@ def _process_message_inner(
     # === Flows BDD ===
     if intent in ("flow_retard", "flow_modif", "flow_recla") and not context.get("awaiting"):
         context["flow"] = intent
-        context["awaiting"] = "numero_billet"
-        return {
-            "answer": "Bien sûr. Pour ouvrir votre dossier, donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).",
-            "quick_replies": [],
-            "context": context,
-            "tool_used": None,
-        }
+
+        # Fast-path NER (Séance 4) : si l'utilisateur balance déjà tout en une phrase,
+        # on extrait numero/prenom/nom/date d'un coup et on saute les questions
+        # une-par-une. Filet de sécurité regex conservé dans ner.extract_entities.
+        try:
+            ents = ner.extract_entities(message)
+        except Exception as exc:
+            logger.warning("NER extract a échoué : %s", exc)
+            ents = {}
+        if ents.get("numero_billet"):
+            context["numero_billet"] = ents["numero_billet"]
+        if ents.get("prenom"):
+            context["prenom"] = ents["prenom"]
+        if ents.get("nom"):
+            context["nom"] = ents["nom"]
+        if ents.get("date_iso"):
+            try:
+                context["date_naissance_iso"] = ents["date_iso"]
+            except Exception:
+                pass
+
+        # Choix de la prochaine étape selon ce qui manque
+        if not context.get("numero_billet"):
+            context["awaiting"] = "numero_billet"
+            return {
+                "answer": "Bien sûr. Pour ouvrir votre dossier, donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).",
+                "quick_replies": [], "context": context, "tool_used": None,
+            }
+        # Vérifier l'existence du billet
+        billet = db.query(Billet).filter(Billet.numero_billet == context["numero_billet"]).first()
+        if billet is None:
+            context["awaiting"] = "numero_billet"
+            context.pop("numero_billet", None)
+            return {
+                "answer": "Je n'ai pas trouvé ce numéro de billet. Pouvez-vous me le redonner (format TRV-2026-XXXXXX) ?",
+                "quick_replies": [], "context": context, "tool_used": "query_billet",
+            }
+        if not context.get("nom"):
+            context["awaiting"] = "nom"
+            return {
+                "answer": f"Parfait, billet {billet.numero_billet} trouvé. Pour la sécurité, indiquez-moi votre nom de famille.",
+                "quick_replies": [], "context": context, "tool_used": "query_billet",
+            }
+        if not context.get("prenom"):
+            context["awaiting"] = "prenom"
+            return {
+                "answer": "Merci. Et votre prénom ?",
+                "quick_replies": [], "context": context, "tool_used": None,
+            }
+        if not context.get("date_naissance_iso"):
+            context["awaiting"] = "date_naissance"
+            return {
+                "answer": "Et enfin, votre date de naissance au format JJ/MM/AAAA.",
+                "quick_replies": [], "context": context, "tool_used": None,
+            }
+        # Tout est là d'un coup : on vérifie et on enchaîne le flow
+        from datetime import datetime as _dt
+        try:
+            dt = _dt.fromisoformat(context["date_naissance_iso"])
+        except Exception:
+            dt = None
+        if dt is None:
+            context["awaiting"] = "date_naissance"
+            return {
+                "answer": "Merci. Pour confirmer, votre date de naissance au format JJ/MM/AAAA ?",
+                "quick_replies": [], "context": context, "tool_used": None,
+            }
+        billet_ok = verify_billet_identity(
+            db, context["numero_billet"], context["nom"], context["prenom"], dt
+        )
+        if billet_ok is None:
+            return {
+                "answer": (
+                    "Les informations fournies ne correspondent pas à ce billet. "
+                    "Pour des raisons de sécurité, je ne peux pas donner suite."
+                ),
+                "quick_replies": [], "context": {}, "tool_used": "identity_check",
+            }
+        result = _handle_flow(db, billet_ok, context["flow"], context)
+        result["context"] = {**result.get("context", {}), "last_billet_id": billet_ok.id}
+        return result
 
     if context.get("awaiting") == "numero_billet":
         num = message.strip().upper()
@@ -742,13 +816,18 @@ def _process_message_inner(
         used_rag = False
         try:
             user_id_for_rag = user.id if user else None
-            results = rag.search(message, k=3, user_id=user_id_for_rag)
+            # Pipeline 2 étapes (cf. Séance 1) :
+            # 1) bi-encoder gte-small récupère 10 candidats
+            # 2) cross-encoder ms-marco re-trie et garde les 3 meilleurs
+            candidates = rag.search(message, k=10, user_id=user_id_for_rag)
+            results = reranker.rerank(message, candidates, top_k=3) if candidates else []
             if results:
                 rag_context = rag.format_context(results)
                 used_rag = True
                 logger.info(
-                    "RAG : %d chunks injectés (scores %s)",
+                    "RAG : %d/%d chunks injectés après rerank (scores CE %s)",
                     len(results),
+                    len(candidates),
                     [f"{r['score']:.2f}" for r in results],
                 )
         except Exception as exc:

@@ -37,3 +37,10 @@ sentiment-chatbot/
 
 # RAG store (régénéré au démarrage)
 backend/data/rag_store.json
+backend/data/image_cache.json
+
+# Autres projets hors SAE
+maintenance-applicative-todolist/
+sentiment-chatbot-fr/
+sentiment-chatbot-rnn-fr/
+transcription-audio-fr/

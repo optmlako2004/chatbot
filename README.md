@@ -54,6 +54,9 @@ L'utilisateur peut :
 | Validation | **Pydantic 2** | Schémas d'entrée/sortie typés |
 | BDD | **SQLite** (`voyage.db`) | Stockage local, ~2000 trajets, users, billets |
 | LLM | **Google Gemini 2.5 Flash** | Génération de réponses conversationnelles |
+| RAG | **LangChain + FAISS + `thenlper/gte-small`** | Retrieval vectoriel local sur CGV + billets (Séance 1) |
+| Reranker | **CrossEncoder `cross-encoder/ms-marco-MiniLM-L-6-v2`** | Re-tri attention croisée des chunks RAG (Séance 1) |
+| NER | **CamemBERT `Jean-Baptiste/camembert-ner`** | Extraction prénom / nom / numéro / date d'un message libre (Séance 4) |
 | Recherche web | **DuckDuckGo via `ddgs`** | Réponses temps réel (météo, prix, grèves…) |
 | Email | **Brevo (ex-Sendinblue)** | Envoi mail transactionnel + pièce jointe |
 | PDF | **ReportLab** | Génération du billet PDF A4 |
@@ -94,6 +97,9 @@ L'utilisateur peut :
 │   │   └── services/
 │   │       ├── chatbot.py      # ❤️ State machine + détection intent + filtres sécu
 │   │       ├── gemini.py       # SDK Google Generative AI
+│   │       ├── rag.py          # LangChain + FAISS + gte-small (embeddings HF locaux)
+│   │       ├── reranker.py     # CrossEncoder ms-marco (re-tri des chunks RAG)
+│   │       ├── ner.py          # NER CamemBERT (extraction d'entités)
 │   │       ├── web_search.py   # ddgs wrapper + détection « should_search »
 │   │       ├── billet_pdf.py   # ReportLab — billet PDF A4
 │   │       ├── email.py        # Brevo HTML + PDF en pièce jointe
@@ -141,7 +147,8 @@ Dans Voyage Assistant on a **trois sources** « retrieval » :
 
 #### 1. RAG documentaire vectoriel (CGV + billets) — `backend/app/services/rag.py`
 
-Le bot dispose d'une base documentaire interne indexée par **embeddings sémantiques** :
+Pipeline aligné sur la **Séance 1** du cours : **LangChain + FAISS + embeddings
+HuggingFace locaux**, et un **reranker CrossEncoder** en seconde étape.
 
 - **CGV statiques** (`backend/data/cgv/`) : 3 documents Markdown couvrant
   annulation, bagages, remboursement & assurance. Indexés au démarrage du backend.
@@ -150,19 +157,48 @@ Le bot dispose d'une base documentaire interne indexée par **embeddings sémant
   utilisateur (un client ne voit que ses propres billets en retrieval).
 
 **Pipeline d'indexation**
-1. Lecture du document → découpage en chunks de ~400 mots avec recouvrement de 60
-2. Embedding de chaque chunk via `models/gemini-embedding-001` (Gemini API)
-3. Stockage `{doc_id, chunk_id, text, embedding, meta}` dans `data/rag_store.json`
+1. Lecture du document → découpage **`RecursiveCharacterTextSplitter`**
+   (chunk_size=512, overlap=51)
+2. Embedding de chaque chunk via **`thenlper/gte-small`** (HuggingFace, local,
+   384 dim, vecteurs normalisés)
+3. Stockage dans un **index FAISS** persisté sur disque (`backend/app/rag/store/`)
 
-**Pipeline de recherche** (à chaque message utilisateur)
-1. Embedding de la requête (`task_type=RETRIEVAL_QUERY`)
-2. Similarité **cosinus** vs tous les chunks indexés (filtrés par user_id + CGV)
-3. Top-K (k=3) avec seuil de pertinence > 0.3
-4. Injection en bloc `CONNAISSANCES DOCUMENTAIRES` dans le prompt Gemini
+**Pipeline de recherche en 2 étapes** (à chaque message utilisateur)
+1. **Bi-encoder** (gte-small) : embedding de la requête + similarité cosinus
+   FAISS → 10 candidats rapides
+2. **Cross-encoder** (`cross-encoder/ms-marco-MiniLM-L-6-v2`) : re-score chaque
+   paire (query, chunk) en attention croisée → top 3 chunks pertinents
+3. Injection en bloc `CONNAISSANCES DOCUMENTAIRES` dans le prompt Gemini
 
-Exemple : *« je peux annuler 3 jours avant ? »* → embedding → match à 0.77 sur
-l'article 1 des CGV annulation → injecté → réponse fiable avec frais de 15 €
-mentionnés.
+Exemple : *« je peux annuler 3 jours avant ? »* → 10 candidats FAISS → top
+re-trié par le CrossEncoder pointe sur l'article 1 des CGV annulation → injecté
+→ réponse fiable avec frais de 15 € mentionnés.
+
+> **Pourquoi deux étapes ?** Le bi-encoder est rapide mais moins précis ; le
+> cross-encoder voit la query et le chunk *ensemble* dans son attention, ce qui
+> améliore nettement la pertinence sans payer le coût d'embedder tout le corpus
+> à chaque requête.
+
+#### 1.bis Extraction d'entités — `backend/app/services/ner.py`
+
+Pour les flows sensibles (modification, annulation, réclamation), un **NER
+CamemBERT** (`Jean-Baptiste/camembert-ner`, vu en Séance 4) extrait
+**prénom + nom** d'un message libre. Combiné à une regex stricte sur le numéro
+de billet (`TRV-\d{4}-[A-Z0-9]{4,}`) et à un parseur de date multi-format, ça
+permet le **fast-path** suivant :
+
+```
+USER : Je veux faire une réclamation pour mon billet TRV-2026-CGAJPO,
+       je m'appelle Pierre Girard
+NER  : { numero_billet: "TRV-2026-CGAJPO", prenom: "Pierre",
+         nom: "Girard", date_iso: null }
+BOT  : (saute directement à l'étape date de naissance)
+       Et enfin, votre date de naissance au format JJ/MM/AAAA ?
+```
+
+L'utilisateur n'a plus à répondre à 3 questions séparées si ses infos sont
+déjà dans la phrase initiale. La regex `TRV-…` reste comme filet de sécurité
+si le NER tombe ou rate.
 
 #### 2. BDD interne — `CONTEXTE BILLET`
 
@@ -418,6 +454,57 @@ ce qui suffit pour le dev / la démo.
 
 Vite réglé : `verify_billet_identity` compare en `.lower()` et tolère
 l'inversion nom/prénom.
+
+### 7.7 Recherche de vols avec escales — 15 s pour Paris-NYC
+
+**Problème.** Sur des trajets longue distance, l'endpoint `/trajets` mettait
+**15 secondes** par appel parce que `_search_connecting` (1 et 2 escales) fait
+jusqu'à ~3000 requêtes SQL en boucle sur `depart_code` / `arrivee_code`, et
+**aucun index** n'existait sur ces colonnes (sur 182k routes, chaque requête
+=  full scan).
+
+**Solution.** Deux changements ciblés :
+
+1. **Index SQL** ajoutés au startup (idempotent via `CREATE INDEX IF NOT EXISTS`)
+   sur `routes.depart_code`, `routes.arrivee_code` + composites
+   `(type, depart_code)` et `(type, arrivee_code)`. Voir `app/main.py::_ensure_route_indexes`.
+2. **Cache TTL en mémoire** dans `routers/trajets.py` (`_TTLCache`, thread-safe) :
+   - `_search_cache` 60 s sur `/trajets` (clé = type+depart+arrivee+date)
+   - `_destinations_cache` 5 min sur `/trajets/destinations`
+
+**Résultat.** Paris → New York : **15.0 s → 0.34 s** (cold) → **1.6 ms** (cache).
+Paris → Tokyo : 4.7 s → 0.58 s → 1.7 ms. `/destinations` : 2.5 s → 1.7 s → 2 ms
+(le cold reste à 1.7 s à cause des ~24 appels Pixabay sur les photos de villes ;
+hors SQL).
+
+### 7.8 Migration RAG « classique → vectorielle » (retour prof)
+
+**Problème.** Le prof a flagué l'approche initiale comme « classique » :
+embeddings via API Gemini (cloud), store JSON plat avec similarité cosinus
+codée à la main, chunking naïf par mots. Pas de **LangChain**, pas de **FAISS**,
+pas de **reranking**, et l'extraction du numéro de billet faite à 100 % par
+**regex** + flow guidé étape par étape — bref, aucune trace des concepts
+réellement vus en cours.
+
+**Solution.** Trois chantiers alignés sur les Séances :
+
+1. **`rag.py` réécrit** : LangChain + FAISS local + embeddings HF `gte-small` +
+   `RecursiveCharacterTextSplitter`. Index FAISS persisté dans
+   `backend/app/rag/store/`. API publique inchangée (`index_text`, `search`,
+   `format_context`, `is_indexed`, `store_size`) donc `main.py` et
+   `routers/billets.py` n'ont rien à changer.
+2. **`reranker.py` ajouté** : pipeline RAG en 2 étapes (bi-encoder retrieve k=10,
+   cross-encoder `ms-marco-MiniLM-L-6-v2` top_k=3). Branché dans `chatbot.py`
+   entre `rag.search()` et l'injection du contexte.
+3. **`ner.py` ajouté** : pipeline HuggingFace `Jean-Baptiste/camembert-ner` pour
+   extraire **prénom / nom** d'un message libre, combiné à la regex stricte sur
+   le numéro de billet et à un parseur de date. Branché en **fast-path** au
+   déclenchement de chaque flow sensible : si l'utilisateur balance tout d'un
+   coup, on saute les questions une par une.
+
+**Résultat.** Tous les mots-clés du cours sont maintenant matérialisés dans le
+code : RAG, LangChain, FAISS, embeddings HuggingFace, chunking récursif,
+reranking CrossEncoder (Séance 1), pipeline NER CamemBERT (Séance 4).
 
 ---
 

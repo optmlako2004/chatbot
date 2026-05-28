@@ -1,24 +1,25 @@
-"""Service RAG (Retrieval-Augmented Generation).
+"""Service RAG (Retrieval-Augmented Generation) — version LangChain + FAISS + HF embeddings.
 
-Indexation et recherche par similarité cosinus, avec embeddings Gemini
-(text-embedding-004) et store JSON persisté.
+Architecture (alignée Séance 1) :
+- Embeddings : thenlper/gte-small (HuggingFace, local, multilingue, 384 dim)
+- Vector store : FAISS (sauvegardé sur disque dans settings.rag_index_dir)
+- Chunking : RecursiveCharacterTextSplitter (chunk_size=512, overlap=51)
+- Distance : L2 sur vecteurs normalisés, convertie en similarité cosinus
 
 Deux sources de documents :
 - CGV statiques (politique annulation, bagages, remboursement)
 - Billets utilisateur générés à la volée
 
-Le store est volontairement simple (in-memory + JSON), suffisant pour la
-volumétrie d'un projet pédagogique. Pour un usage prod, on remplacerait
-par ChromaDB / Pinecone / pgvector.
+L'API publique (is_indexed, store_size, index_text, index_cgv_folder, search,
+format_context) reste identique à la version précédente : main.py, chatbot.py
+et routers/billets.py n'ont rien à changer.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import math
-import os
-import re
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -26,121 +27,145 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-STORE_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "rag_store.json"
-EMBED_MODEL = "models/gemini-embedding-001"
-CHUNK_SIZE = 400  # mots par chunk
-CHUNK_OVERLAP = 60
+# =====================================================================
+# Configuration
+# =====================================================================
+EMBED_MODEL_NAME = "thenlper/gte-small"   # 384 dim, multilingue, vu en Séance 1
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 51
+SCORE_THRESHOLD = 0.50   # similarité cosinus minimale (gte-small a un baseline ~0.78 donc on garde bas)
 
-_store: list[dict] = []
+_p = Path(settings.rag_index_dir)
+if not _p.is_absolute():
+    # Résolution stable : relative au dossier `backend/` (parent de `app/`),
+    # peu importe le CWD au lancement.
+    _p = Path(__file__).resolve().parent.parent.parent / _p
+_INDEX_DIR = _p.resolve()
+_MAPPING_PATH = _INDEX_DIR / "doc_mapping.json"
+
+# Etat module (chargé paresseusement)
+_embeddings = None        # langchain HuggingFaceEmbeddings (lazy)
+_vectorstore = None       # langchain FAISS (lazy)
+_doc_chunks: dict[str, list[str]] = {}   # doc_id -> liste d'ids FAISS
+_lock = threading.Lock()
 _disabled = False
 
 
 # =====================================================================
-# Embeddings
+# Chargement paresseux des modèles
 # =====================================================================
-def _embed(text: str, task_type: str = "RETRIEVAL_DOCUMENT") -> Optional[list[float]]:
-    """Retourne le vecteur d'embedding via Gemini, ou None si indisponible."""
-    global _disabled
-    if _disabled or not settings.gemini_api_key:
-        return None
+def _get_embeddings():
+    """Charge gte-small la première fois qu'on en a besoin (~70 Mo)."""
+    global _embeddings, _disabled
+    if _embeddings is not None or _disabled:
+        return _embeddings
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=settings.gemini_api_key)
-        result = genai.embed_content(
-            model=EMBED_MODEL,
-            content=text,
-            task_type=task_type,
+        from langchain_huggingface import HuggingFaceEmbeddings
+        _embeddings = HuggingFaceEmbeddings(
+            model_name=EMBED_MODEL_NAME,
+            encode_kwargs={"normalize_embeddings": True},
         )
-        return result["embedding"]
+        logger.info("Embeddings HF chargés : %s", EMBED_MODEL_NAME)
     except Exception as exc:
-        logger.warning("Embedding Gemini échoué : %s", exc)
+        logger.error("Impossible de charger les embeddings HF : %s", exc)
+        _disabled = True
+    return _embeddings
+
+
+def _splitter():
+    from langchain_text_splitters import RecursiveCharacterTextSplitter
+    return RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+        separators=["\n\n", "\n", ". ", " ", ""],
+    )
+
+
+def _get_vectorstore():
+    """Charge ou crée le vector store FAISS."""
+    global _vectorstore, _doc_chunks
+    if _vectorstore is not None:
+        return _vectorstore
+    emb = _get_embeddings()
+    if emb is None:
         return None
+    from langchain_community.vectorstores import FAISS
+    _INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    if (_INDEX_DIR / "index.faiss").exists():
+        _vectorstore = FAISS.load_local(
+            str(_INDEX_DIR), emb, allow_dangerous_deserialization=True,
+        )
+        if _MAPPING_PATH.exists():
+            try:
+                _doc_chunks = json.loads(_MAPPING_PATH.read_text(encoding="utf-8"))
+            except Exception:
+                _doc_chunks = {}
+        logger.info("FAISS index chargé (%d vecteurs, %d documents)",
+                    _vectorstore.index.ntotal, len(_doc_chunks))
+    return _vectorstore
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(x * x for x in b))
-    if na == 0 or nb == 0:
-        return 0.0
-    return dot / (na * nb)
-
-
-# =====================================================================
-# Chunking
-# =====================================================================
-def _chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    """Découpe un texte en chunks de ~size mots avec recouvrement."""
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        return []
-    words = text.split()
-    if len(words) <= size:
-        return [text]
-    chunks = []
-    step = size - overlap
-    for i in range(0, len(words), step):
-        chunk = " ".join(words[i : i + size])
-        if chunk:
-            chunks.append(chunk)
-        if i + size >= len(words):
-            break
-    return chunks
-
-
-# =====================================================================
-# Persistance
-# =====================================================================
-def _save() -> None:
-    try:
-        STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        STORE_PATH.write_text(json.dumps(_store, ensure_ascii=False), encoding="utf-8")
-    except Exception as exc:
-        logger.error("Sauvegarde RAG échouée : %s", exc)
-
-
-def _load() -> None:
-    global _store
-    if STORE_PATH.exists():
-        try:
-            _store = json.loads(STORE_PATH.read_text(encoding="utf-8"))
-            logger.info("RAG store chargé : %d chunks", len(_store))
-        except Exception as exc:
-            logger.error("Chargement RAG échoué : %s", exc)
-            _store = []
+def _persist() -> None:
+    if _vectorstore is None:
+        return
+    _INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    _vectorstore.save_local(str(_INDEX_DIR))
+    _MAPPING_PATH.write_text(
+        json.dumps(_doc_chunks, ensure_ascii=False), encoding="utf-8",
+    )
 
 
 # =====================================================================
 # API publique
 # =====================================================================
 def index_text(text: str, *, doc_id: str, meta: Optional[dict] = None) -> int:
-    """Indexe un texte (le découpe en chunks, l'embed et le stocke).
+    """Indexe un texte (chunking récursif + embeddings + ajout FAISS).
 
-    Si un document avec ce doc_id existe déjà, il est remplacé.
-    Retourne le nombre de chunks indexés.
+    Si un document avec ce doc_id existe déjà, ses anciens chunks sont
+    supprimés avant insertion.
     """
-    global _store
-    # Suppression de l'éventuel ancien document
-    _store = [c for c in _store if c.get("doc_id") != doc_id]
+    global _vectorstore, _doc_chunks
+    if _disabled:
+        return 0
+    with _lock:
+        emb = _get_embeddings()
+        if emb is None:
+            return 0
+        chunks = _splitter().split_text(text)
+        if not chunks:
+            return 0
 
-    chunks = _chunk_text(text)
-    indexed = 0
-    for i, chunk in enumerate(chunks):
-        vec = _embed(chunk, task_type="RETRIEVAL_DOCUMENT")
-        if vec is None:
-            logger.warning("Skip chunk %d de %s (embedding indisponible)", i, doc_id)
-            continue
-        _store.append({
-            "doc_id": doc_id,
-            "chunk_id": f"{doc_id}#{i}",
-            "text": chunk,
-            "embedding": vec,
-            "meta": meta or {},
-        })
-        indexed += 1
-    _save()
-    logger.info("Indexé %s : %d chunks", doc_id, indexed)
-    return indexed
+        from langchain_community.vectorstores import FAISS
+
+        # 1) Si le doc existe déjà, on supprime ses chunks
+        vs = _get_vectorstore()
+        if vs is not None and doc_id in _doc_chunks:
+            try:
+                vs.delete(ids=_doc_chunks[doc_id])
+            except Exception as exc:
+                logger.warning("Suppression doc %s impossible : %s", doc_id, exc)
+            _doc_chunks.pop(doc_id, None)
+
+        # 2) Préparer les nouveaux chunks (ids stables + metadata)
+        new_ids = [f"{doc_id}#{i}" for i in range(len(chunks))]
+        base_meta = dict(meta or {})
+        base_meta["doc_id"] = doc_id
+        metadatas = [
+            {**base_meta, "chunk_id": cid, "chunk_index": i}
+            for i, cid in enumerate(new_ids)
+        ]
+
+        # 3) Ajout au vector store (création si premier doc)
+        if vs is None:
+            vs = FAISS.from_texts(chunks, emb, metadatas=metadatas, ids=new_ids)
+            _vectorstore = vs
+        else:
+            vs.add_texts(chunks, metadatas=metadatas, ids=new_ids)
+
+        _doc_chunks[doc_id] = new_ids
+        _persist()
+        logger.info("Indexé %s : %d chunks (FAISS, gte-small)", doc_id, len(chunks))
+        return len(chunks)
 
 
 def search(
@@ -156,29 +181,38 @@ def search(
     - user_id : ne retourne que les billets de cet utilisateur + tous les CGV
     - doc_type : "cgv" ou "billet"
     """
-    if not _store:
+    if _disabled:
         return []
-    q_vec = _embed(query, task_type="RETRIEVAL_QUERY")
-    if q_vec is None:
+    vs = _get_vectorstore()
+    if vs is None:
         return []
 
-    candidates = _store
-    if doc_type:
-        candidates = [c for c in candidates if c.get("meta", {}).get("type") == doc_type]
-    if user_id is not None:
-        candidates = [
-            c for c in candidates
-            if c.get("meta", {}).get("type") == "cgv"
-            or c.get("meta", {}).get("user_id") == user_id
-        ]
+    def _filter(meta: dict) -> bool:
+        if doc_type and meta.get("type") != doc_type:
+            return False
+        if user_id is not None and meta.get("type") != "cgv":
+            if meta.get("user_id") != user_id:
+                return False
+        return True
 
-    scored = [(c, _cosine(q_vec, c["embedding"])) for c in candidates]
-    scored.sort(key=lambda t: t[1], reverse=True)
-    top = scored[:k]
-    return [
-        {"text": c["text"], "score": score, "meta": c.get("meta", {})}
-        for c, score in top if score > 0.3  # seuil de pertinence
-    ]
+    # FAISS renvoie une L2 distance sur vecteurs normalisés.
+    # cos_sim = 1 - L2² / 2  (vecteurs unitaires)
+    raw = vs.similarity_search_with_score(query, k=k * 4)
+    results: list[dict] = []
+    for doc, l2 in raw:
+        if not _filter(doc.metadata or {}):
+            continue
+        cos = 1.0 - float(l2) / 2.0
+        if cos < SCORE_THRESHOLD:
+            continue
+        results.append({
+            "text": doc.page_content,
+            "score": cos,
+            "meta": doc.metadata or {},
+        })
+        if len(results) >= k:
+            break
+    return results
 
 
 def format_context(results: list[dict]) -> str:
@@ -217,12 +251,12 @@ def index_cgv_folder(folder: Path) -> int:
 
 
 def is_indexed(doc_id: str) -> bool:
-    return any(c.get("doc_id") == doc_id for c in _store)
+    _get_vectorstore()  # force le chargement pour peupler _doc_chunks
+    return doc_id in _doc_chunks
 
 
 def store_size() -> int:
-    return len(_store)
-
-
-# Chargement au import
-_load()
+    vs = _get_vectorstore()
+    if vs is None:
+        return 0
+    return vs.index.ntotal

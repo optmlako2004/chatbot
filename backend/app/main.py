@@ -26,7 +26,28 @@ app.add_middleware(
 @app.on_event("startup")
 def _startup() -> None:
     init_db()
+    _ensure_route_indexes()
     _index_cgv()
+
+
+def _ensure_route_indexes() -> None:
+    """Crée les index manquants sur routes.depart_code / arrivee_code.
+
+    Sans ces index, la recherche de vols avec escales fait jusqu'à 3000 scans
+    complets de la table sur 182k routes (15 s pour Paris-NYC).
+    """
+    from app.database import engine
+    from sqlalchemy import text
+    statements = [
+        "CREATE INDEX IF NOT EXISTS ix_routes_depart_code ON routes(depart_code)",
+        "CREATE INDEX IF NOT EXISTS ix_routes_arrivee_code ON routes(arrivee_code)",
+        "CREATE INDEX IF NOT EXISTS ix_routes_type_depart_code ON routes(type, depart_code)",
+        "CREATE INDEX IF NOT EXISTS ix_routes_type_arrivee_code ON routes(type, arrivee_code)",
+    ]
+    with engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(text(stmt))
+    logger.info("Index routes vérifiés (depart_code, arrivee_code, composites).")
 
 
 def _index_cgv() -> None:
