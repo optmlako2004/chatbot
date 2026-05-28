@@ -7,6 +7,158 @@ Utilisé pour :
 
 from __future__ import annotations
 
+import unicodedata
+
+
+def _norm(s: str) -> str:
+    """Minuscules + supprime les accents pour la comparaison."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s.lower())
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+# Traductions courantes EN→FR pour la recherche
+_EN_TO_FR_QUERY: dict[str, list[str]] = {
+    # Anglais → noms FR (et noms EN pour la recherche BDD)
+    "london":        ["Londres", "London"],
+    "rome":          ["Rome"],
+    "milan":         ["Milan"],
+    "florence":      ["Florence"],
+    "venice":        ["Venise", "Venice"],
+    "naples":        ["Naples"],
+    "vienna":        ["Vienne", "Vienna"],
+    "munich":        ["Munich"],
+    "berlin":        ["Berlin"],
+    "frankfurt":     ["Francfort", "Frankfurt"],
+    "hamburg":       ["Hambourg", "Hamburg"],
+    "cologne":       ["Cologne"],
+    "amsterdam":     ["Amsterdam"],
+    "brussels":      ["Bruxelles", "Brussels"],
+    "lisbon":        ["Lisbonne", "Lisbon"],
+    "athens":        ["Athènes", "Athens"],
+    "istanbul":      ["Istanbul"],
+    "moscow":        ["Moscou", "Moscow"],
+    "cairo":         ["Le Caire", "Cairo"],
+    "dubai":         ["Dubaï", "Dubai"],
+    "tokyo":         ["Tokyo"],
+    "osaka":         ["Osaka"],
+    "beijing":       ["Pékin", "Beijing"],
+    "montreal":      ["Montréal", "Montreal"],
+    "toronto":       ["Toronto"],
+    "new york":      ["New York"],
+    "casablanca":    ["Casablanca"],
+    "marrakech":     ["Marrakech"],
+    "barcelona":     ["Barcelone", "Barcelona"],
+    "madrid":        ["Madrid"],
+    "seville":       ["Séville", "Seville"],
+    "copenhagen":    ["Copenhague", "Copenhagen"],
+    "stockholm":     ["Stockholm"],
+    "oslo":          ["Oslo"],
+    "zurich":        ["Zurich"],
+    "geneva":        ["Genève", "Geneva"],
+    "prague":        ["Prague"],
+    "warsaw":        ["Varsovie", "Warsaw"],
+    "budapest":      ["Budapest"],
+    "bucharest":     ["Bucarest", "Bucharest"],
+    "zagreb":        ["Zagreb"],
+    "sofia":         ["Sofia"],
+    "porto":         ["Porto"],
+    "faro":          ["Faro"],
+    # Pays → villes principales
+    "france":        ["Paris", "Lyon", "Marseille", "Bordeaux", "Nice", "Toulouse", "Nantes"],
+    "spain":         ["Madrid", "Barcelone", "Séville", "Valence"],
+    "espagne":       ["Madrid", "Barcelone", "Séville", "Valence"],
+    "italy":         ["Rome", "Milan", "Naples", "Florence", "Venise", "Turin"],
+    "italie":        ["Rome", "Milan", "Naples", "Florence", "Venise"],
+    "germany":       ["Berlin", "Munich", "Francfort", "Hambourg", "Cologne"],
+    "allemagne":     ["Berlin", "Munich", "Francfort", "Hambourg"],
+    "uk":            ["Londres"],
+    "england":       ["Londres"],
+    "angleterre":    ["Londres"],
+    "royaume-uni":   ["Londres"],
+    "portugal":      ["Lisbonne", "Porto", "Faro"],
+    "greece":        ["Athènes", "Santorin", "Mykonos"],
+    "grece":         ["Athènes", "Santorin", "Mykonos", "Héraklion"],
+    "morocco":       ["Marrakech", "Casablanca", "Rabat", "Tanger"],
+    "maroc":         ["Marrakech", "Casablanca", "Rabat", "Tanger"],
+    "tunisia":       ["Tunis", "Djerba"],
+    "tunisie":       ["Tunis", "Djerba"],
+    "algeria":       ["Alger", "Oran"],
+    "algerie":       ["Alger", "Oran"],
+    "netherlands":   ["Amsterdam"],
+    "pays-bas":      ["Amsterdam", "Rotterdam"],
+    "belgium":       ["Bruxelles", "Liège"],
+    "belgique":      ["Bruxelles", "Liège"],
+    "switzerland":   ["Genève", "Zurich", "Bâle"],
+    "suisse":        ["Genève", "Zurich"],
+    "austria":       ["Vienne"],
+    "autriche":      ["Vienne"],
+    "usa":           ["New York", "Los Angeles", "Miami", "Chicago", "San Francisco"],
+    "etats-unis":    ["New York", "Los Angeles", "Miami"],
+    "canada":        ["Montréal", "Toronto", "Vancouver"],
+    "japan":         ["Tokyo", "Osaka", "Kyoto"],
+    "japon":         ["Tokyo", "Osaka"],
+    "china":         ["Pékin", "Shanghai"],
+    "chine":         ["Pékin", "Shanghai"],
+    "senegal":       ["Dakar"],
+    "sénégal":       ["Dakar"],
+    "dubai":         ["Dubaï"],
+    "emirats":       ["Dubaï"],
+    "turkey":        ["Istanbul", "Ankara"],
+    "turquie":       ["Istanbul", "Ankara"],
+    # Afrique
+    "egypte":        ["Le Caire", "Cairo", "Hurghada", "Sharm"],
+    "egypt":         ["Le Caire", "Cairo", "Hurghada"],
+    "kenya":         ["Nairobi", "Mombasa"],
+    "afrique du sud":["Le Cap", "Johannesburg"],
+    "south africa":  ["Le Cap", "Johannesburg"],
+    "nigeria":       ["Lagos", "Abuja"],
+    "ghana":         ["Accra"],
+    "cote d ivoire": ["Abidjan"],
+    "ivory coast":   ["Abidjan"],
+    "madagascar":    ["Antananarivo"],
+    "reunion":       ["Saint-Denis de la Réunion"],
+    "martinique":    ["Fort-de-France"],
+    "guadeloupe":    ["Pointe-à-Pitre"],
+    "ethiopie":      ["Addis-Abeba"],
+    "ethiopia":      ["Addis-Abeba"],
+    # Asie
+    "inde":          ["Mumbai", "Delhi", "Bangalore", "Chennai"],
+    "india":         ["Mumbai", "Delhi", "Bangalore"],
+    "thaïlande":     ["Bangkok", "Phuket", "Chiang Mai"],
+    "thailand":      ["Bangkok", "Phuket"],
+    "vietnam":       ["Hô Chi Minh-Ville", "Hanoi"],
+    "indonesie":     ["Bali", "Jakarta"],
+    "indonesia":     ["Bali", "Jakarta"],
+    "singapour":     ["Singapour"],
+    "singapore":     ["Singapour"],
+    "hong kong":     ["Hong Kong"],
+    "coree":         ["Séoul"],
+    "korea":         ["Séoul"],
+    "russie":        ["Moscou", "Saint-Pétersbourg"],
+    "russia":        ["Moscou"],
+    # Amériques
+    "mexique":       ["Mexico", "Cancún"],
+    "mexico":        ["Mexico"],
+    "bresil":        ["São Paulo", "Rio de Janeiro", "Brasilia"],
+    "brazil":        ["São Paulo", "Rio de Janeiro"],
+    "argentine":     ["Buenos Aires"],
+    "argentina":     ["Buenos Aires"],
+    "colombie":      ["Bogota"],
+    "colombia":      ["Bogota"],
+    "perou":         ["Lima"],
+    "peru":          ["Lima"],
+    "chili":         ["Santiago"],
+    "chile":         ["Santiago"],
+    "cuba":          ["La Havane"],
+    "republique dominicaine": ["Punta Cana", "Saint-Domingue"],
+    # Océanie
+    "australie":     ["Sydney", "Melbourne", "Brisbane"],
+    "australia":     ["Sydney", "Melbourne"],
+    "nouvelle-zelande": ["Auckland", "Wellington"],
+}
+
 LIEUX_AVION = [
     # France
     {"nom": "Paris CDG", "ville": "Paris", "pays": "France", "code": "CDG"},
@@ -56,12 +208,44 @@ LIEUX_AVION = [
     {"nom": "Tunis Carthage", "ville": "Tunis", "pays": "Tunisie", "code": "TUN"},
     {"nom": "Dubaï International", "ville": "Dubaï", "pays": "Émirats", "code": "DXB"},
     {"nom": "Istanbul", "ville": "Istanbul", "pays": "Turquie", "code": "IST"},
+    # Afrique & Moyen-Orient
+    {"nom": "Le Caire", "ville": "Le Caire", "pays": "Égypte", "code": "CAI"},
+    {"nom": "Hurghada", "ville": "Hurghada", "pays": "Égypte", "code": "HRG"},
+    {"nom": "Sharm el-Sheikh", "ville": "Sharm el-Sheikh", "pays": "Égypte", "code": "SSH"},
+    {"nom": "Dakar", "ville": "Dakar", "pays": "Sénégal", "code": "DKR"},
+    {"nom": "Abidjan", "ville": "Abidjan", "pays": "Côte d'Ivoire", "code": "ABJ"},
+    {"nom": "Nairobi", "ville": "Nairobi", "pays": "Kenya", "code": "NBO"},
+    {"nom": "Lagos", "ville": "Lagos", "pays": "Nigeria", "code": "LOS"},
+    {"nom": "Johannesburg", "ville": "Johannesburg", "pays": "Afrique du Sud", "code": "JNB"},
+    {"nom": "Addis-Abeba", "ville": "Addis-Abeba", "pays": "Éthiopie", "code": "ADD"},
+    {"nom": "Accra", "ville": "Accra", "pays": "Ghana", "code": "ACC"},
     # Long-courrier
     {"nom": "New York JFK", "ville": "New York", "pays": "États-Unis", "code": "JFK"},
+    {"nom": "Los Angeles", "ville": "Los Angeles", "pays": "États-Unis", "code": "LAX"},
+    {"nom": "Miami", "ville": "Miami", "pays": "États-Unis", "code": "MIA"},
     {"nom": "Montréal Trudeau", "ville": "Montréal", "pays": "Canada", "code": "YUL"},
+    {"nom": "Toronto Pearson", "ville": "Toronto", "pays": "Canada", "code": "YYZ"},
+    {"nom": "Vancouver", "ville": "Vancouver", "pays": "Canada", "code": "YVR"},
+    {"nom": "Mexico", "ville": "Mexico", "pays": "Mexique", "code": "MEX"},
+    {"nom": "Cancún", "ville": "Cancún", "pays": "Mexique", "code": "CUN"},
+    {"nom": "Bogota", "ville": "Bogota", "pays": "Colombie", "code": "BOG"},
+    {"nom": "São Paulo", "ville": "São Paulo", "pays": "Brésil", "code": "GRU"},
+    {"nom": "Buenos Aires", "ville": "Buenos Aires", "pays": "Argentine", "code": "EZE"},
+    {"nom": "Lima", "ville": "Lima", "pays": "Pérou", "code": "LIM"},
     {"nom": "Tokyo Haneda", "ville": "Tokyo", "pays": "Japon", "code": "HND"},
+    {"nom": "Osaka", "ville": "Osaka", "pays": "Japon", "code": "KIX"},
+    {"nom": "Seoul Incheon", "ville": "Séoul", "pays": "Corée du Sud", "code": "ICN"},
     {"nom": "Bangkok Suvarnabhumi", "ville": "Bangkok", "pays": "Thaïlande", "code": "BKK"},
+    {"nom": "Singapour Changi", "ville": "Singapour", "pays": "Singapour", "code": "SIN"},
+    {"nom": "Hong Kong", "ville": "Hong Kong", "pays": "Hong Kong", "code": "HKG"},
+    {"nom": "Kuala Lumpur", "ville": "Kuala Lumpur", "pays": "Malaisie", "code": "KUL"},
+    {"nom": "Mumbai", "ville": "Mumbai", "pays": "Inde", "code": "BOM"},
+    {"nom": "Delhi", "ville": "Delhi", "pays": "Inde", "code": "DEL"},
+    {"nom": "Sydney", "ville": "Sydney", "pays": "Australie", "code": "SYD"},
     {"nom": "Le Cap", "ville": "Le Cap", "pays": "Afrique du Sud", "code": "CPT"},
+    {"nom": "Moscou Sheremetyevo", "ville": "Moscou", "pays": "Russie", "code": "SVO"},
+    {"nom": "La Havane", "ville": "La Havane", "pays": "Cuba", "code": "HAV"},
+    {"nom": "Punta Cana", "ville": "Punta Cana", "pays": "Rép. Dominicaine", "code": "PUJ"},
 ]
 
 LIEUX_TRAIN = [
@@ -165,19 +349,42 @@ LIEUX_PAR_TYPE = {
 
 
 def search_lieux(query: str = "", type_transport: str | None = None, limit: int = 12):
-    """Cherche les lieux contenant `query` (insensible casse), filtre par type si fourni."""
-    q = (query or "").strip().lower()
+    """Cherche les lieux :
+    - insensible aux accents (marseille = Marseille = Märseille)
+    - supporte l'anglais (london → Londres, spain → Espagne)
+    - supporte les noms de pays (france, italy, maroc…)
+    """
+    q_raw = (query or "").strip()
+    q = _norm(q_raw)
+
     if type_transport and type_transport in LIEUX_PAR_TYPE:
         catalogues = [(type_transport, LIEUX_PAR_TYPE[type_transport])]
     else:
         catalogues = list(LIEUX_PAR_TYPE.items())
 
+    # Si la requête correspond à un pays/traduction, on construit des termes élargis
+    extra_terms: list[str] = []
+    if q in _EN_TO_FR_QUERY:
+        extra_terms = [_norm(t) for t in _EN_TO_FR_QUERY[q]]
+
+    def _matches(l: dict) -> bool:
+        haystack = _norm(f"{l['nom']} {l['ville']} {l['pays']} {l.get('code','')}")
+        if not q:
+            return True
+        if q in haystack:
+            return True
+        # Correspondance via traduction pays/EN
+        return any(term in haystack for term in extra_terms)
+
     results = []
+    seen: set[str] = set()
     for type_, lieux in catalogues:
         for l in lieux:
-            haystack = f"{l['nom']} {l['ville']} {l['pays']} {l.get('code','')}".lower()
-            if not q or q in haystack:
-                results.append({**l, "type": type_})
+            if _matches(l):
+                key = f"{l['nom']}|{type_}"
+                if key not in seen:
+                    seen.add(key)
+                    results.append({**l, "type": type_})
             if len(results) >= limit * 4:
                 break
         if len(results) >= limit * 4:

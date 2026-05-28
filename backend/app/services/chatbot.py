@@ -7,7 +7,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import Billet, ChatMessage, Reclamation, Trajet, User
+from sqlalchemy import func as sqlfunc
+
+from app.models import Billet, ChatMessage, Reclamation, Route, Trajet, User
 from app.services import gemini, rag, web_search
 from app.services.identity import verify_billet_identity
 from app.services.numeros import generate_numero_reclamation
@@ -64,6 +66,143 @@ _PROMPT_INJECTION = re.compile(
 
 # Demandes d'accès à un billet par numéro sans passer par le flow guidé.
 _BILLET_REFERENCE = re.compile(r"\bTRV-\d{4}-[A-Z0-9]{4,}\b", re.IGNORECASE)
+
+
+_DEST_KEYWORDS = (
+    "destination", "où aller", "ou aller", "top", "populaire", "recommande",
+    "conseil", "quelle ville", "quels endroits", "que visiter", "voyage à",
+    "partir pour", "envie de",
+)
+_ROUTE_KEYWORDS = (
+    "train", "avion", "bateau", "bus", "vol", "trajet", "ligne",
+    "aller à", "aller en", "aller au", "comment aller", "comment se rendre",
+    "dessert", "relie", "liaison", "navette",
+)
+
+# Mots indicateurs de destination dans la phrase ("je cherche un train à/pour/vers X")
+_DEST_PREPS = re.compile(
+    r"(?:pour|vers|à|a|jusqu['’]à|pour aller à|destination)\s+([A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40})",
+    re.IGNORECASE,
+)
+_FROM_PREPS = re.compile(
+    r"(?:depuis|de|au départ de|à partir de|partant de)\s+([A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40})",
+    re.IGNORECASE,
+)
+
+
+def _extract_destination(text: str) -> tuple[str | None, str | None]:
+    """Extrait (arrivee, depart) depuis une phrase en langage naturel."""
+    arr = _DEST_PREPS.search(text)
+    dep = _FROM_PREPS.search(text)
+    arrivee = arr.group(1).strip().rstrip("?.,!") if arr else None
+    depart  = dep.group(1).strip().rstrip("?.,!") if dep else None
+    return arrivee, depart
+
+
+_MY_BILLETS_KEYWORDS = (
+    "mes billets", "mes réservations", "mes reservations", "mes voyages",
+    "mes trajets", "ma réservation", "ma reservation", "mon billet",
+    "mon voyage", "mon trajet", "prochain voyage", "prochaine réservation",
+    "tout est ok", "tout va bien", "confirme", "confirmé", "vérifier ma",
+    "verifier ma", "statut de ma", "état de ma", "etat de ma",
+    "j'ai réservé", "j ai reserve", "j'ai booké", "quels sont mes",
+    "qu'est-ce que j'ai", "qu est ce que j ai",
+    "voir mes réservations", "voir mes reservations",
+    "mon prochain voyage", "ma prochaine réservation",
+)
+
+_IATA_RE = re.compile(r'\s+[A-Z]{2,4}(?=\s|$)')
+_STATION_SUFFIXES = (
+    " Hbf", " Hauptbahnhof", " Termini", " Centrale", " Centraal",
+    " Sants", " Atocha", " St Pancras", " Victoria", " Waterloo",
+    " Rive Droite", " Rive Gauche", " Matabiau", " Part-Dieu",
+    " Perrache", " Montparnasse", " Saint-Charles", " Saint-Lazare",
+    " Gare de Lyon", " Oriente", " Porta Susa", " Santa Lucia",
+)
+
+
+def _build_user_billets_context(db: Session, user: User) -> str:
+    """Formate les réservations d'un utilisateur connecté pour injection dans Gemini."""
+    billets = (
+        db.query(Billet)
+        .filter(Billet.user_id == user.id)
+        .order_by(Billet.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    if not billets:
+        return f"L'utilisateur {user.prenom} {user.nom} n'a aucune réservation."
+    JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    MOIS  = ["janvier", "février", "mars", "avril", "mai", "juin",
+             "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+    lines = [
+        f"RÉSERVATIONS DE {user.prenom.upper()} {user.nom.upper()} (utilisateur connecté — identité déjà vérifiée) :"
+    ]
+    for b in billets:
+        t = b.trajet
+        if t is None:
+            lines.append(f"- Billet {b.numero_billet} · trajet introuvable · statut : {b.statut}")
+            continue
+        dd = t.date_depart
+        date_fr = f"{JOURS[dd.weekday()]} {dd.day} {MOIS[dd.month-1]} {dd.year} à {dd:%H:%M}"
+        retard = f", {t.retard_minutes} min de retard" if t.retard_minutes else ""
+        lines.append(
+            f"- {b.numero_billet} · {t.type.capitalize()} {t.compagnie} · "
+            f"{t.depart} → {t.arrivee} · {date_fr} · "
+            f"classe {t.classe or 'Standard'} · {b.prix_paye:.0f} € · statut : {b.statut}{retard}"
+        )
+    return "\n".join(lines)
+
+
+def _clean_city_name(name: str) -> str:
+    """Supprime codes IATA et suffixes de gare pour l'affichage dans le chatbot."""
+    c = _IATA_RE.sub('', name).strip()
+    for sfx in _STATION_SUFFIXES:
+        if c.lower().endswith(sfx.lower()):
+            c = c[:-len(sfx)].strip()
+    return c
+
+
+def _query_routes_for_dest(db: Session, arrivee: str, depart: str | None = None, transport: str | None = None) -> str:
+    """Requête la table routes pour trouver les liaisons vers `arrivee`."""
+    q = db.query(Route).filter(Route.arrivee.ilike(f"%{arrivee}%"))
+    if depart:
+        q = q.filter(Route.depart.ilike(f"%{depart}%"))
+    if transport:
+        q = q.filter(Route.type == transport)
+    rows = q.order_by(sqlfunc.random()).limit(8).all()
+    if not rows:
+        return ""
+    lines = [
+        f"- {r.type.capitalize()} {r.compagnie} : {_clean_city_name(r.depart)} → {_clean_city_name(r.arrivee)} (à partir de {r.base_price:.0f} €)"
+        for r in rows
+    ]
+    return "ROUTES DISPONIBLES DANS NOTRE CATALOGUE :\n" + "\n".join(lines)
+
+
+def _query_top_destinations(db: Session, depart: str = "Paris", n: int = 10) -> str:
+    """Renvoie les n destinations les plus représentées depuis `depart`."""
+    rows = (
+        db.query(Route.arrivee, sqlfunc.count(Route.id).label("nb"), sqlfunc.min(Route.base_price).label("prix"))
+        .filter(Route.depart.ilike(f"%{depart}%"))
+        .group_by(Route.arrivee)
+        .order_by(sqlfunc.random())
+        .limit(n * 5)
+        .all()
+    )
+    seen: set[str] = set()
+    selected = []
+    for r in rows:
+        name = _clean_city_name(r.arrivee).lower()
+        if name not in seen:
+            seen.add(name)
+            selected.append(r)
+        if len(selected) >= n:
+            break
+    if not selected:
+        return ""
+    lines = [f"- {_clean_city_name(r.arrivee)} · dès {r.prix:.0f} €" for r in selected]
+    return f"DESTINATIONS DISPONIBLES AU DÉPART DE {depart.upper()} :\n" + "\n".join(lines)
 
 
 def _sanitize_user_input(s: str) -> str:
@@ -579,23 +718,24 @@ def _process_message_inner(
                     f"- Statut : {b.statut} · Prix payé : {b.prix_paye:.2f} €\n"
                 )
 
-        if web_search.should_search(message):
-            # Enrichit la requête avec la destination si pertinent (météo/prix/grève → en fonction du voyage)
-            search_query = message
-            if destination_city:
-                lower = message.lower()
-                if any(k in lower for k in ("météo", "meteo", "temps", "temperature", "température",
-                                            "climat", "pluie", "soleil", "grève", "greve", "visa",
-                                            "passeport", "douane", "transport", "taxi", "metro",
-                                            "musée", "musee", "à voir", "que faire", "restaurant",
-                                            "hôtel", "hotel", "événement", "evenement")):
-                    if destination_city.lower() not in lower:
-                        search_query = f"{message} {destination_city}"
-            results = web_search.search(search_query, max_results=6)
-            if results:
-                used_web = True
-                web_context = web_search.format_for_prompt(results)
-                logger.info("DuckDuckGo : %d résultats injectés (query: %r)", len(results), search_query)
+        # Réservations de l'utilisateur connecté : injection automatique si demande explicite
+        # ou si l'utilisateur est connecté et pose une question qui pourrait concerner ses billets
+        m_lower_billets = message.lower()
+        if user and any(k in m_lower_billets for k in _MY_BILLETS_KEYWORDS):
+            billets_ctx = _build_user_billets_context(db, user)
+            billet_context = billets_ctx + ("\n\n" + billet_context if billet_context else "")
+            logger.info("Réservations utilisateur injectées (user_id=%s)", user.id)
+
+        # Recherche web systématique pour toutes les questions freeform voyage.
+        # On enrichit la requête avec la ville de destination si le contexte billet est connu.
+        search_query = message
+        if destination_city and destination_city.lower() not in message.lower():
+            search_query = f"{message} {destination_city}"
+        results = web_search.search(search_query, max_results=5)
+        if results:
+            used_web = True
+            web_context = web_search.format_for_prompt(results)
+            logger.info("DuckDuckGo : %d résultats injectés (query: %r)", len(results), search_query)
         # === RAG : recherche dans CGV + billets indexés ===
         rag_context = ""
         used_rag = False
@@ -613,8 +753,30 @@ def _process_message_inner(
         except Exception as exc:
             logger.warning("RAG search échouée : %s", exc)
 
-        # Concatène RAG + billet_context + web_context dans l'ordre logique
-        full_context = "\n\n".join(x for x in [rag_context, billet_context, web_context] if x)
+        # === DB routes : questions sur destinations / liaisons ===
+        db_context = ""
+        m_lower = message.lower()
+        is_route_q  = any(k in m_lower for k in _ROUTE_KEYWORDS)
+        is_dest_q   = any(k in m_lower for k in _DEST_KEYWORDS)
+        if is_route_q or is_dest_q:
+            arrivee, depart_city = _extract_destination(message)
+            transport_map = {
+                "avion": "avion", "vol": "avion", "aérien": "avion",
+                "train": "train", "tgv": "train", "eurostar": "train", "ter": "train",
+                "bateau": "bateau", "ferry": "bateau",
+                "bus": "bus", "autocar": "bus", "flixbus": "bus",
+            }
+            transport_type = next((v for k, v in transport_map.items() if k in m_lower), None)
+            if arrivee:
+                db_context = _query_routes_for_dest(db, arrivee, depart_city, transport_type)
+            elif is_dest_q:
+                depart_city = depart_city or "Paris"
+                db_context = _query_top_destinations(db, depart_city)
+            if db_context:
+                logger.info("DB routes injectées (%d chars)", len(db_context))
+
+        # Concatène DB routes + RAG + billet_context + web_context dans l'ordre logique
+        full_context = "\n\n".join(x for x in [db_context, rag_context, billet_context, web_context] if x)
         gem = gemini.ask(message, history=history, web_context=full_context)
         if gem:
             if used_rag and used_web:

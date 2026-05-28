@@ -90,10 +90,10 @@ const SearchBar = ({ values, compact = false }) => {
 };
 
 const MODES = [
-  { key: 'plane', label: 'Avion', sub: '320+ compagnies',  meta: 'dès 49 €',   Icon: IPlane },
-  { key: 'train', label: 'Train', sub: 'SNCF · Trenitalia · DB', meta: 'dès 19 €', Icon: ITrain },
-  { key: 'ship',  label: 'Bateau', sub: 'Ferries & croisières', meta: 'dès 35 €', Icon: IShip },
-  { key: 'bus',   label: 'Bus longue distance', sub: 'FlixBus · BlaBlaCar', meta: 'dès 9 €',  Icon: IBus },
+  { key: 'plane', label: 'Avion',  sub: '450+ compagnies · 159 000 routes', meta: 'dès 49 €', Icon: IPlane },
+  { key: 'train', label: 'Train',  sub: 'SNCF · Eurostar · DB · Trenitalia · Renfe', meta: 'dès 19 €', Icon: ITrain },
+  { key: 'ship',  label: 'Bateau', sub: 'P&O · Brittany Ferries · Corsica Linea…', meta: 'dès 19 €', Icon: IShip },
+  { key: 'bus',   label: 'Bus',    sub: 'FlixBus · BlaBlaBus · liaisons EU', meta: 'dès 5 €', Icon: IBus },
 ];
 
 const ModeCards = ({ active = 'train' }) => (
@@ -114,8 +114,16 @@ const ModeCards = ({ active = 'train' }) => (
   </div>
 );
 
-const ModeTabs = ({ active = 'train', onSelect }) => (
+const ModeTabs = ({ active = 'all', onSelect }) => (
   <div className="va-modetabs">
+    <button
+      type="button"
+      className={active === 'all' ? 'is-active' : ''}
+      onClick={(e) => { e.stopPropagation(); onSelect && onSelect('all'); }}
+    >
+      <ISearch size={16} />
+      Tous
+    </button>
     {MODES.map(({ key, label, Icon }) => (
       <button
         key={key}
@@ -130,114 +138,109 @@ const ModeTabs = ({ active = 'train', onSelect }) => (
   </div>
 );
 
-const MODE_KEY_TO_API = { plane: 'avion', train: 'train', ship: 'bateau', bus: 'bus' };
+const MODE_KEY_TO_API = { all: null, plane: 'avion', train: 'train', ship: 'bateau', bus: 'bus' };
 const MODE_API_TO_KEY = { avion: 'plane', train: 'train', bateau: 'ship', bus: 'bus' };
 
-/* Destination photos — Unsplash CDN, desaturated cinematic */
-/* URLs Unsplash vérifiées — chaque ID a été testé. Si on ajoute une destination,
-   utiliser https://unsplash.com pour trouver une photo, copier l'ID dans l'URL. */
-const DESTINATIONS = [
-  { city: 'Lisbonne',  country: 'Portugal',     price: 'dès 68 €',  img: 'https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=600&q=80&auto=format' },
-  { city: 'Cinque Terre', country: 'Italie',    price: 'dès 92 €',  img: 'https://images.unsplash.com/photo-1516483638261-f4dbaf036963?w=600&q=80&auto=format' },
-  { city: 'Santorin',  country: 'Grèce',        price: 'dès 124 €', img: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=600&q=80&auto=format' },
-  { city: 'Édimbourg', country: 'Écosse',       price: 'dès 58 €',  img: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=600&q=80&auto=format' },
-  { city: 'Marrakech', country: 'Maroc',        price: 'dès 89 €',  img: 'https://images.unsplash.com/photo-1539020140153-e479b8c64e08?w=600&q=80&auto=format' },
-  { city: 'Vienne',    country: 'Autriche',     price: 'dès 74 €',  img: 'https://images.unsplash.com/photo-1516550893923-42d28e5677af?w=600&q=80&auto=format' },
-  { city: 'Porto',     country: 'Portugal',     price: 'dès 62 €',  img: 'https://images.unsplash.com/photo-1555990538-32172a787875?w=600&q=80&auto=format' },
-  { city: 'Stockholm', country: 'Suède',        price: 'dès 96 €',  img: 'https://images.unsplash.com/photo-1509356843151-3e7d96241e11?w=600&q=80&auto=format' },
-  { city: 'Barcelone', country: 'Espagne',      price: 'dès 54 €',  img: 'https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=600&q=80&auto=format' },
-  { city: 'Rome',      country: 'Italie',       price: 'dès 79 €',  img: 'https://images.unsplash.com/photo-1525874684015-58379d421a52?w=600&q=80&auto=format' },
-  { city: 'Amsterdam', country: 'Pays-Bas',     price: 'dès 64 €',  img: 'https://images.unsplash.com/photo-1512470876302-972faa2aa9a4?w=600&q=80&auto=format' },
-  { city: 'Berlin',    country: 'Allemagne',    price: 'dès 58 €',  img: 'https://images.unsplash.com/photo-1560969184-10fe8719e047?w=600&q=80&auto=format' },
-  { city: 'Athènes',   country: 'Grèce',        price: 'dès 108 €', img: 'https://images.unsplash.com/photo-1555993539-1732b0258235?w=600&q=80&auto=format' },
-  { city: 'Marseille', country: 'France',       price: 'dès 35 €',  img: 'https://images.unsplash.com/photo-1559666126-84f389727b9a?w=600&q=80&auto=format' },
-  { city: 'Casablanca', country: 'Maroc',       price: 'dès 85 €',  img: 'https://images.unsplash.com/photo-1577033881-31df11df00c4?w=600&q=80&auto=format' },
-  { city: 'Istanbul',  country: 'Turquie',      price: 'dès 119 €', img: 'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?w=600&q=80&auto=format' },
-];
 
 const DestinationImg = ({ city, src }) => {
   const fallback = `https://picsum.photos/seed/${encodeURIComponent(city)}/600/400`;
-  const [url, setUrl] = React.useState(src);
+  const [url, setUrl] = React.useState(src || fallback);
+  React.useEffect(() => { setUrl(src || fallback); }, [src]);
   return (
     <div
       className="va-dest__img"
-      style={{ backgroundImage: `url(${url}), url(${fallback})`, backgroundSize: 'cover, cover', backgroundPosition: 'center' }}
+      style={{ backgroundImage: `url(${url})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
     >
-      <img
-        src={src}
-        alt=""
-        style={{ display: 'none' }}
-        onError={() => setUrl(fallback)}
-      />
+      <img src={url} alt="" style={{ display: 'none' }} onError={() => setUrl(fallback)} />
     </div>
   );
 };
 
-const DestinationGrid = ({ count = 4, offset = 0, onPick }) => (
-  <div className="va-destgrid">
-    {DESTINATIONS.slice(offset, offset + count).map((d, i) => (
-      <button
-        key={`${d.city}-${offset + i}`}
-        type="button"
-        className="va-dest"
-        onClick={() => onPick && onPick(d)}
-        style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
-      >
-        <DestinationImg city={d.city} src={d.img} />
-        <div className="va-dest__body">
-          <div>
-            <div className="va-dest__city">{d.city}</div>
-            <div className="va-dest__country">{d.country}</div>
-          </div>
-          <span className="va-dest__price">{d.price}</span>
-        </div>
-      </button>
-    ))}
-  </div>
-);
-
-const DestinationsCarousel = ({ perPage = 4, onPick }) => {
+/* Carousel dynamique — charge les destinations depuis le backend */
+const DestinationsCarousel = ({ perPage = 4, onPick, depart = 'Paris' }) => {
+  const [destinations, setDestinations] = React.useState([]);
+  const [images, setImages] = React.useState({});
   const [page, setPage] = React.useState(0);
-  const pages = Math.ceil(DESTINATIONS.length / perPage);
+  const [loading, setLoading] = React.useState(true);
+
+  // Charge les destinations réelles depuis le backend
+  React.useEffect(() => {
+    setLoading(true);
+    fetch(`${window.VA_CONFIG.API_BASE}/trajets/destinations?depart=${encodeURIComponent(depart)}&limit=24`)
+      .then(r => r.json())
+      .then(data => {
+        setDestinations(Array.isArray(data) ? data : []);
+        setLoading(false);
+      })
+      .catch(() => {
+        setDestinations([]);
+        setLoading(false);
+      });
+  }, [depart]);
+
+  // Charge les images Pixabay pour les destinations visibles
+  React.useEffect(() => {
+    if (!destinations.length) return;
+    const start = page * perPage;
+    const visible = destinations.slice(start, start + perPage);
+    visible.forEach(d => {
+      if (images[d.ville]) return;
+      fetch(`${window.VA_CONFIG.API_BASE}/images?q=${encodeURIComponent(d.ville + ' city travel')}&mode=ville`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.url) setImages(prev => ({ ...prev, [d.ville]: data.url }));
+        })
+        .catch(() => {});
+    });
+  }, [page, destinations]);
+
+  if (loading) return (
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--va-text-muted)' }}>Chargement des destinations…</div>
+  );
+
+  if (!destinations.length) return null;
+
+  const pages = Math.ceil(destinations.length / perPage);
+  const visible = destinations.slice(page * perPage, page * perPage + perPage);
+
   return (
     <div>
-      <DestinationGrid count={perPage} offset={page * perPage} onPick={onPick} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 28 }}>
-        <button
-          type="button"
-          className="va-iconbtn"
-          onClick={() => setPage((p) => (p - 1 + pages) % pages)}
-          aria-label="Précédent"
-          style={{ transform: 'rotate(180deg)' }}
-        >
-          <IChevronRight size={16} />
-        </button>
-        {Array.from({ length: pages }).map((_, i) => (
+      <div className="va-destgrid">
+        {visible.map((d, i) => (
           <button
-            key={i}
+            key={`${d.ville}-${page}-${i}`}
             type="button"
-            onClick={() => setPage(i)}
-            aria-label={`Page ${i + 1}`}
-            style={{
-              width: 30, height: 30, borderRadius: 999,
-              border: i === page ? '1px solid var(--va-text)' : '1px solid var(--va-border)',
-              background: i === page ? 'var(--va-text)' : 'transparent',
-              color: i === page ? 'var(--va-bg)' : 'var(--va-text-muted)',
-              fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-            }}
+            className="va-dest"
+            onClick={() => onPick && onPick({ city: d.ville, country: d.pays || '', price: `dès ${d.prix_min} €` })}
+            style={{ border: 'none', background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit' }}
           >
-            {i + 1}
+            <DestinationImg city={d.ville} src={d.img || images[d.ville] || null} />
+            <div className="va-dest__body">
+              <div>
+                <div className="va-dest__city">{d.ville}</div>
+                <div className="va-dest__country">{d.pays || ''}</div>
+              </div>
+              <span className="va-dest__price">dès {d.prix_min} €</span>
+            </div>
           </button>
         ))}
-        <button
-          type="button"
-          className="va-iconbtn"
-          onClick={() => setPage((p) => (p + 1) % pages)}
-          aria-label="Suivant"
-        >
-          <IChevronRight size={16} />
-        </button>
       </div>
+      {pages > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 28 }}>
+          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p - 1 + pages) % pages)} aria-label="Précédent" style={{ transform: 'rotate(180deg)' }}>
+            <IChevronRight size={16} />
+          </button>
+          {Array.from({ length: pages }).map((_, i) => (
+            <button key={i} type="button" onClick={() => setPage(i)}
+              style={{ width: 30, height: 30, borderRadius: 999, border: i === page ? '1px solid var(--va-text)' : '1px solid var(--va-border)', background: i === page ? 'var(--va-text)' : 'transparent', color: i === page ? 'var(--va-bg)' : 'var(--va-text-muted)', fontFamily: 'inherit', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+              {i + 1}
+            </button>
+          ))}
+          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p + 1) % pages)} aria-label="Suivant">
+            <IChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -260,7 +263,7 @@ const ValueProps = () => (
       { Icon: ICheck,    title: 'Un seul billet',     sub: 'Multi-mode, multi-compagnies' },
       { Icon: IShield,   title: 'Garantie 0 stress',  sub: 'Remboursement en 48 h' },
       { Icon: ISparkles, title: 'Assistant 24 / 7',   sub: 'Retards, modifications, réclas' },
-      { Icon: IGlobe,    title: '8 600 destinations', sub: 'Europe, Maghreb, Moyen-Orient' },
+      { Icon: IGlobe,    title: '3 000 destinations', sub: 'Europe, Afrique, Amériques, Asie' },
     ].map(({ Icon, title, sub }, i) => (
       <div key={i} style={{
         display: 'flex', alignItems: 'flex-start', gap: 12,
@@ -317,6 +320,30 @@ const BAG_OPTIONS = {
 };
 
 const BAG_INCLUDED_LABEL = 'Sac à dos cabine inclus · 40 × 20 × 25 cm (~7 kg)';
+
+const _CLASS_LABEL_MAP = {
+  // avion
+  'économique': 'eco', 'eco': 'eco', 'standard': 'eco',
+  'premium economy': 'premium', 'premium éco': 'premium', 'premium': 'premium',
+  'business': 'business', 'affaires': 'business',
+  'première': 'first', 'first': 'first', 'first class': 'first',
+  // train
+  '2nde · loisir': 'eco', '2nde · pro': 'eco', '2nde': 'eco',
+  '1ère · pro': 'premium', '1ère': 'premium',
+  // bateau
+  'pont': 'eco',
+  'cabine 2': 'premium', 'cabine 4': 'premium', 'cabine intérieure': 'premium',
+  'cabine premium': 'business', 'cabine extérieure': 'business',
+  // bus
+};
+const guessClassId = (classeLabel, mode) => {
+  if (!classeLabel) return null;
+  const key = classeLabel.toLowerCase().trim();
+  const guessed = _CLASS_LABEL_MAP[key] || null;
+  const opts = CLASS_OPTIONS[mode] || CLASS_OPTIONS.train;
+  if (guessed && opts.find(o => o.id === guessed)) return guessed;
+  return null;
+};
 
 /* Normalise les voyageurs : accepte ancien format (passagers: number) ou nouveau (pax: {adultes,enfants,bebes}) */
 const normalizePax = (s) => {
@@ -461,9 +488,9 @@ const PaxStepper = ({ value, onChange, onValidate }) => {
 Object.assign(window, {
   Wordmark, ThemeToggle, Nav,
   SearchBar, MODES, ModeCards, ModeTabs,
-  DESTINATIONS, DestinationGrid, DestinationsCarousel, FAB, ValueProps,
+  DestinationGrid, DestinationsCarousel, FAB, ValueProps,
   MODE_KEY_TO_API, MODE_API_TO_KEY,
-  CLASS_OPTIONS, BAG_OPTIONS, BAG_INCLUDED_LABEL,
+  CLASS_OPTIONS, BAG_OPTIONS, BAG_INCLUDED_LABEL, guessClassId,
   normalizePax, paxCount, paxLabel, paxBreakdown,
   computeBookingTotal, PaxStepper, StepBtn,
   TRIP_TYPES, TripTypeTabs, tripTypeLabel, isRoundTrip,

@@ -28,5 +28,13 @@ class Settings(BaseSettings):
     admin_default_email: str = "admin@voyage.local"
     admin_default_password: str = "changeme"
 
+    auth_secret: str = "dev-secret-change-me"
+
+    # APIs externes
+    pixabay_api_key: str = ""
+    navitia_api_key: str = ""
+    amadeus_client_id: str = ""
+    amadeus_client_secret: str = ""
+
 
 settings = Settings()

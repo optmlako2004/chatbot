@@ -44,6 +44,9 @@ class TrajetOut(BaseModel):
     has_prise: bool = True
     stops: str = "direct"
     classe: str = "Standard"
+    # Vols avec escale(s)
+    escales: list[str] = []          # ["New York JFK", "Miami MIA"]
+    duree_escale_min: int = 0        # durée totale d'escale en minutes
 
     model_config = {"from_attributes": True}
 

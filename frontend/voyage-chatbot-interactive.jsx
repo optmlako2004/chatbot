@@ -303,15 +303,15 @@ const RatingModal = ({ onSubmit, onClose, submitting }) => {
         />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button className="va-btn va-btn--secondary" type="button" onClick={onClose} disabled={submitting}>
-            Annuler
+            Passer
           </button>
           <button
             className="va-btn va-btn--primary"
             type="button"
-            onClick={() => onSubmit(rating, feedback)}
-            disabled={rating === 0 || submitting}
+            onClick={() => onSubmit(rating || 3, feedback)}
+            disabled={submitting}
           >
-            {submitting ? 'Envoi…' : 'Envoyer & terminer'}
+            {submitting ? 'Envoi…' : 'Terminer'}
           </button>
         </div>
       </div>
@@ -513,6 +513,17 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
   React.useEffect(() => { startSession(); }, [startSession]);
   React.useEffect(() => { refreshSessions(); }, [refreshSessions]);
 
+  // Quand l'utilisateur se connecte : on relie la session anonyme courante à son compte,
+  // puis on rafraîchit l'historique pour qu'elle apparaisse.
+  const prevIsAuth = React.useRef(false);
+  React.useEffect(() => {
+    const nowAuth = !!(auth && auth.isAuth);
+    if (nowAuth && !prevIsAuth.current && sessionToken) {
+      window.VA_API.chatStart(sessionToken).catch(() => {}).finally(() => refreshSessions());
+    }
+    prevIsAuth.current = nowAuth;
+  }, [auth && auth.isAuth, sessionToken]);
+
   // Timer d'inactivité : 2 minutes après le dernier message → modale "êtes-vous toujours là ?"
   const resetInactivity = React.useCallback(() => {
     if (inactivityRef.current) clearTimeout(inactivityRef.current);
@@ -623,7 +634,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
         <RatingModal
           submitting={submittingRating}
           onSubmit={submitRating}
-          onClose={() => { if (!submittingRating) setShowRating(false); }}
+          onClose={() => { if (!submittingRating) { setShowRating(false); setShowInactivity(false); } }}
         />
       )}
       {pendingDelete && (

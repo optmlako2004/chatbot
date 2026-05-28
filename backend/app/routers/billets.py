@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import Billet, Trajet, User
+from datetime import datetime, timezone
+
+from app.models import Billet, Route, Trajet, User
 from app.schemas import BilletAccess, BilletCreate, BilletModification, BilletOut
 from app.services.auth import get_current_user
 from app.services.billet_pdf import build_billet_pdf
@@ -18,9 +20,74 @@ from app.services.numeros import generate_numero_billet
 router = APIRouter(prefix="/billets", tags=["billets"])
 
 
+def _materialize_dyn_trajet(db: Session, dyn_id: str, classe_override: str | None = None, prix_override: float | None = None) -> Trajet | None:
+    """Matérialise un trajet dynamique (dyn-{route_uuid}-{YYYY-MM-DD}) en ligne DB."""
+    # Format : "dyn-{uuid}-{YYYY-MM-DD}" — l'UUID contient 4 tirets donc on splitte depuis la droite
+    # rsplit("-", 3) donne ["dyn-{uuid}", "YYYY", "MM", "DD"]
+    parts = dyn_id.rsplit("-", 3)
+    if len(parts) != 4 or not dyn_id.startswith("dyn-"):
+        return None
+    try:
+        route_id = parts[0][4:]   # retire le préfixe "dyn-"
+        date_dep = datetime.strptime(f"{parts[1]}-{parts[2]}-{parts[3]}", "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+
+    route = db.get(Route, route_id)
+    if route is None:
+        return None
+
+    # Déjà matérialisé ? (idempotent)
+    existing = db.query(Trajet).filter(
+        Trajet.depart == route.depart,
+        Trajet.arrivee == route.arrivee,
+        Trajet.compagnie == route.compagnie,
+    ).filter(
+        Trajet.date_depart >= date_dep.replace(hour=0, minute=0),
+        Trajet.date_depart <  date_dep.replace(hour=23, minute=59),
+    ).first()
+    if existing:
+        return existing
+
+    # Recalcule les valeurs dynamiques avec le même seed déterministe
+    from app.routers.trajets import _make_trajet_out  # import local pour éviter les circulaires
+    t_dyn = _make_trajet_out(route, date_dep)
+
+    trajet = Trajet(
+        type=route.type,
+        depart=route.depart,
+        arrivee=route.arrivee,
+        date_depart=t_dyn.date_depart,
+        date_arrivee=t_dyn.date_arrivee,
+        compagnie=route.compagnie,
+        prix=prix_override if prix_override is not None else t_dyn.prix,
+        places_dispo=t_dyn.places_dispo,
+        retard_minutes=t_dyn.retard_minutes,
+        statut=t_dyn.statut,
+        photo_url=t_dyn.photo_url,
+        has_wifi=t_dyn.has_wifi,
+        has_prise=t_dyn.has_prise,
+        stops=t_dyn.stops,
+        classe=classe_override or t_dyn.classe,
+    )
+    db.add(trajet)
+    db.flush()
+    return trajet
+
+
 @router.post("", response_model=BilletOut, status_code=201)
 def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]):
     trajet = db.get(Trajet, payload.trajet_id)
+
+    # Trajet dynamique (pas encore matérialisé) → on le crée en BDD maintenant
+    if trajet is None and str(payload.trajet_id).startswith("dyn-"):
+        trajet = _materialize_dyn_trajet(
+            db,
+            payload.trajet_id,
+            classe_override=payload.classe,
+            prix_override=payload.prix_paye,
+        )
+
     if trajet is None:
         raise HTTPException(status_code=404, detail="Trajet introuvable")
     nb_places = max(1, int(payload.nb_places or 1))
