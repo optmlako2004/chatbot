@@ -356,7 +356,7 @@ BOT  : C'est fait ! Votre billet est maintenant sur le vol Transavia du
 2e ou 3e requête de la journée, on recevait :
 
 ```
-duckduckgo_search.exceptions.RatelimitException: 202 Ratelimit
+duckduckgo_search.exceptions.RatelimitException: 202 Ratelimit 
 ```
 
 DuckDuckGo HTML/Lite renvoie un challenge anti-bot après quelques appels depuis
@@ -610,7 +610,7 @@ Le chatbot a été *red-teamé* sur :
 ## Crédits
 
 Projet réalisé par **Christian Angela Elako** dans le cadre de la SAE2 BUT3
-(Mr FAYE & Mme AZZAG), promotion 2025-2026.
+(Mr FAYE & Mme AZZAG).
 
 Stack & implémentation : Python (FastAPI / SQLAlchemy / ReportLab), React,
 Google Gemini, DuckDuckGo (ddgs), Brevo, Google OAuth.
