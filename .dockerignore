@@ -1,0 +1,12 @@
+# Ne pas envoyer dans le contexte de build / l'image
+**/.venv
+**/__pycache__
+**/*.pyc
+backend/voyage.db
+backend/app/rag/store
+**/.env
+.git
+node_modules
+archive_finance
+app.py
+*.md

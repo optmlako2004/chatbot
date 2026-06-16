@@ -11,7 +11,7 @@ from sqlalchemy import func as sqlfunc
 
 from app.config import settings
 from app.models import Billet, ChatMessage, Reclamation, Route, Trajet, User
-from app.services import gemini, ner, rag, reranker, web_search
+from app.services import gemini, ner, rag, reranker, travel_apis, web_search
 from app.services.identity import verify_billet_identity
 from app.services.numeros import generate_numero_reclamation
 
@@ -104,6 +104,10 @@ _MY_BILLETS_KEYWORDS = (
     "mes billets", "mes réservations", "mes reservations", "mes voyages",
     "mes trajets", "ma réservation", "ma reservation", "mon billet",
     "mon voyage", "mon trajet", "prochain voyage", "prochaine réservation",
+    # Synonymes par mode de transport (« combien dure mon vol ? », « mon train part quand ? »)
+    "mon vol", "mes vols", "mon train", "mes trains", "mon avion",
+    "mon bus", "mon car", "mon bateau", "mon ferry", "ma ligne",
+    "mon départ", "mon retour", "mon embarquement", "ma destination",
     "tout est ok", "tout va bien", "confirme", "confirmé", "vérifier ma",
     "verifier ma", "statut de ma", "état de ma", "etat de ma",
     "j'ai réservé", "j ai reserve", "j'ai booké", "quels sont mes",
@@ -147,9 +151,16 @@ def _build_user_billets_context(db: Session, user: User) -> str:
         dd = t.date_depart
         date_fr = f"{JOURS[dd.weekday()]} {dd.day} {MOIS[dd.month-1]} {dd.year} à {dd:%H:%M}"
         retard = f", {t.retard_minutes} min de retard" if t.retard_minutes else ""
+        duree_txt = ""
+        if t.date_arrivee:
+            duree_min = int((t.date_arrivee - t.date_depart).total_seconds() // 60)
+            if duree_min > 0:
+                dh, dm = divmod(duree_min, 60)
+                duree_str = f"{dh} h {dm:02d}" if dh else f"{dm} min"
+                duree_txt = f" · arrivée prévue à {t.date_arrivee:%H:%M} · durée du trajet {duree_str}"
         lines.append(
             f"- {b.numero_billet} · {t.type.capitalize()} {t.compagnie} · "
-            f"{t.depart} → {t.arrivee} · {date_fr} · "
+            f"{t.depart} → {t.arrivee} · {date_fr}{duree_txt} · "
             f"classe {t.classe or 'Standard'} · {b.prix_paye:.0f} € · statut : {b.statut}{retard}"
         )
     return "\n".join(lines)
@@ -855,18 +866,32 @@ def _process_message_inner(
             if db_context:
                 logger.info("DB routes injectées (%d chars)", len(db_context))
 
-        # Concatène DB routes + RAG + billet_context + web_context dans l'ordre logique
-        full_context = "\n\n".join(x for x in [db_context, rag_context, billet_context, web_context] if x)
+        # === APIs voyage temps réel : météo + heure locale + change ===
+        # Données structurées et fiables que ni le LLM ni le RAG ne peuvent fournir.
+        # Ville cible = destination extraite du message, sinon destination du billet vérifié.
+        api_context = ""
+        used_apis: list[str] = []
+        try:
+            api_context, used_apis = travel_apis.build_context(message, fallback_city=destination_city)
+            if api_context:
+                logger.info("APIs voyage injectées : %s", used_apis)
+        except Exception as exc:
+            logger.warning("APIs voyage échouées : %s", exc)
+
+        # Concatène DB routes + RAG + billet_context + API temps réel + web_context
+        full_context = "\n\n".join(
+            x for x in [db_context, rag_context, billet_context, api_context, web_context] if x
+        )
         gem = gemini.ask(message, history=history, web_context=full_context)
         if gem:
-            if used_rag and used_web:
-                tool = "rag+web"
-            elif used_rag:
-                tool = "rag"
-            elif used_web:
-                tool = "web_search"
-            else:
-                tool = "gemini"
+            sources = []
+            if used_apis:
+                sources.append("api")
+            if used_rag:
+                sources.append("rag")
+            if used_web:
+                sources.append("web")
+            tool = "+".join(sources) if sources else "gemini"
             return {
                 "answer": gem,
                 "quick_replies": [],

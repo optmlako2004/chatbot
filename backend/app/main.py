@@ -76,3 +76,28 @@ app.include_router(chat.router)
 app.include_router(images.router)
 app.include_router(stats.router)
 app.include_router(admin.router)
+
+
+# --- Frontend statique (déploiement mono-service) -------------------------
+# En prod (HF Spaces) le front est servi par la même appli que l'API : même
+# origine => pas de CORS, et window.location.origin pointe direct sur l'API.
+# Monté EN DERNIER pour que les routers (/auth, /chat, ...) gardent la priorité.
+# En local, si le dossier n'existe pas à cet emplacement, on ne monte rien
+# (le front est ouvert séparément) — aucun impact sur le dev.
+def _mount_frontend() -> None:
+    import os
+    from pathlib import Path
+    from fastapi.staticfiles import StaticFiles
+
+    candidate = os.getenv("FRONTEND_DIR") or str(
+        Path(__file__).resolve().parent.parent.parent / "frontend"
+    )
+    front_dir = Path(candidate)
+    if front_dir.is_dir() and (front_dir / "index.html").exists():
+        app.mount("/", StaticFiles(directory=str(front_dir), html=True), name="frontend")
+        logger.info("Frontend statique monté depuis %s", front_dir)
+    else:
+        logger.info("Pas de frontend statique à monter (%s absent) — mode API seule.", front_dir)
+
+
+_mount_frontend()

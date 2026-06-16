@@ -10,10 +10,18 @@ const TOOL_LABELS = {
   identity_check: 'vérifie l’identité',
   create_reclamation: 'crée la réclamation',
   rag_stub: 'documentation',
+  rag: 'documentation',
+  web: 'recherche web',
   web_search: 'recherche web',
+  api: 'infos temps réel',
 };
 // "gemini" est volontairement exclu : pas besoin d'étiquette quand c'est juste l'IA qui répond.
-const labelForTool = (t) => (t && Object.prototype.hasOwnProperty.call(TOOL_LABELS, t)) ? TOOL_LABELS[t] : null;
+// Les tags composés ("api+web", "rag+web") sont décomposés et joints par " + ".
+const labelForTool = (t) => {
+  if (!t) return null;
+  const labels = String(t).split('+').map((p) => TOOL_LABELS[p]).filter(Boolean);
+  return labels.length ? labels.join(' + ') : null;
+};
 
 /* Parse les liens Markdown [texte](url) et les URLs nues en éléments React cliquables.
    Préserve les retours à la ligne. */
