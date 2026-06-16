@@ -14,10 +14,10 @@ Encadrement : **Bilal Faye** (LIPN, CNRS UMR 7030).
 
 | Membre | Rôle |
 |---|---|
-| **Ako Christian** | Développement ML / Android |
-| **Carl Similien** | Développement Android / Intégration |
-| **Noé Cervera** | Entraînement des modèles / Évaluation |
-| **Dhanoush Kessavane** | Front-end / Design / Documentation |
+| **Ako Christian** | IA conversationnelle & RAG · Déploiement |
+| **Carl Similien** | Back-end & intégration (API, base de données) |
+| **Noé Cervera** | Modèles & évaluation (embeddings, reranker, NER) |
+| **Dhanoush Kessavane** | Front-end · Design · Documentation |
 
 ---
 
@@ -518,10 +518,10 @@ Projet **SAE2 BUT3**, promotion 2025-2026 · Encadrement : **Bilal Faye**
 
 | Membre | Rôle |
 |---|---|
-| **Ako Christian** | Développement ML / Android |
-| **Carl Similien** | Développement Android / Intégration |
-| **Noé Cervera** | Entraînement des modèles / Évaluation |
-| **Dhanoush Kessavane** | Front-end / Design / Documentation |
+| **Ako Christian** | IA conversationnelle & RAG · Déploiement |
+| **Carl Similien** | Back-end & intégration (API, base de données) |
+| **Noé Cervera** | Modèles & évaluation (embeddings, reranker, NER) |
+| **Dhanoush Kessavane** | Front-end · Design · Documentation |
 
 Stack : Python (FastAPI · SQLAlchemy · LangChain · FAISS · ReportLab), React,
 Google Gemini, Hugging Face Transformers, Open-Meteo, Frankfurter, DuckDuckGo,

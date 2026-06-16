@@ -1,0 +1,318 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% Couleurs (orange de l'application)
+\definecolor{accent}{HTML}{D97757}
+\definecolor{dark}{HTML}{243857}
+\definecolor{light}{HTML}{F5F3EE}
+
+\hypersetup{colorlinks=true, linkcolor=dark, urlcolor=accent}
+
+% Titres de section colorés
+\titleformat{\section}{\Large\bfseries\color{dark}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{accent}}{\thesubsection}{0.5em}{}
+
+% En-tête / pied de page
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\color{dark}Voyage Assistant}
+\fancyhead[R]{\small\color{dark}SAE2 BUT3}
+\fancyfoot[C]{\thepage}
+
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\begin{document}
+
+% ----------------------------------------------------------------------
+% Page de garde
+% ----------------------------------------------------------------------
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\color{accent}\rule{\linewidth}{2pt}}\\[0.8cm]
+{\Huge\bfseries\color{dark} Voyage Assistant}\\[0.4cm]
+{\Large Assistant IA conversationnel pour le transport}\\[0.3cm]
+{\large Rapport de projet --- SAE2 BUT3}\\[0.5cm]
+{\color{accent}\rule{\linewidth}{2pt}}\\[1.2cm]
+
+\begin{tabular}{>{\bfseries}l l}
+Ako Christian & IA conversationnelle \& RAG, déploiement \\[0.2cm]
+Carl Similien & Back-end \& intégration (API, base de données) \\[0.2cm]
+Noé Cervera & Modèles \& évaluation (embeddings, reranker, NER) \\[0.2cm]
+Dhanoush Kessavane & Front-end, design \& documentation \\
+\end{tabular}\\[1.2cm]
+
+{\large Encadrement : \textbf{Bilal Faye} (LIPN, CNRS UMR 7030)}\\[0.6cm]
+{\large Promotion 2025--2026}\\[1.5cm]
+
+\fbox{\parbox{0.9\linewidth}{\centering\vspace{0.2cm}
+\textbf{Application en ligne}\\[0.2cm]
+\url{https://optimalako-voyage-assistant.hf.space}\\[0.2cm]
+\textbf{Code source}~: \url{https://github.com/optmlako2004/chatbot}
+\vspace{0.2cm}}}
+
+\vfill
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ----------------------------------------------------------------------
+\section{Introduction et contexte}
+
+Ce projet s'inscrit dans la \textbf{SAE2 du BUT3}, dont l'objectif est de concevoir
+une application complète intégrant un \textbf{assistant conversationnel} fondé sur un
+modèle de langage (LLM) et une approche \textbf{RAG} (\emph{Retrieval-Augmented
+Generation}), spécialisée sur un domaine métier précis. Nous avons choisi le domaine
+du \textbf{transport de voyageurs} (avion, train, bateau, bus longue distance).
+
+L'application, baptisée \textbf{Voyage Assistant}, permet de rechercher et réserver
+un trajet, de gérer son compte et ses billets, et surtout de \textbf{dialoguer avec
+un assistant IA} qui répond aux questions de voyage et exécute réellement des actions
+(modification de réservation, réclamation, annulation). Elle est \textbf{déployée en
+ligne} et accessible publiquement.
+
+\subsection{Objectifs}
+\begin{itemize}[nosep]
+  \item Construire une application \textbf{full-stack} (frontend, backend, base de données).
+  \item Intégrer un \textbf{LLM} et une chaîne \textbf{RAG vectorielle} conforme aux concepts vus en cours.
+  \item Garantir des réponses \textbf{factuelles} (anti-hallucination) en s'appuyant sur des sources de vérité.
+  \item \textbf{Déployer} l'ensemble en ligne, gratuitement.
+\end{itemize}
+
+% ----------------------------------------------------------------------
+\section{Cahier des charges et réponses apportées}
+
+Le tableau suivant met en regard chaque exigence du sujet et sa réalisation concrète.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\bfseries}p{4.8cm} p{9.5cm}}
+\toprule
+Exigence & Réalisation \\
+\midrule
+Domaine spécialisé & Transport de voyageurs (avion / train / bateau / bus) \\
+Application full-stack & FastAPI (back) + React (front) + PostgreSQL \\
+LLM & Google Gemini 2.5 Flash \\
+RAG / vectorisation & LangChain + FAISS + embeddings \code{gte-small} + reranker CrossEncoder \\
+Base de session & Tables \code{users}, \code{chat\_sessions}, \code{chat\_messages} \\
+Voix (option) & Web Speech API : dictée vocale + lecture des réponses \\
+Recherche web (bonus) & DuckDuckGo + APIs temps réel (météo, heure, change) \\
+Déploiement en ligne & Hugging Face Spaces + Neon (PostgreSQL) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ----------------------------------------------------------------------
+\section{Architecture technique}
+
+L'application suit une architecture \textbf{client--serveur} classique, enrichie d'une
+couche d'intelligence artificielle côté serveur.
+
+\subsection{Vue d'ensemble}
+\begin{itemize}[nosep]
+  \item \textbf{Frontend} (\code{frontend/}) : React 18 (sans étape de build, via Babel
+        navigateur), CSS personnalisé avec thèmes clair/sombre, et \textbf{Web Speech
+        API} pour la voix.
+  \item \textbf{Backend} (\code{backend/}) : FastAPI, validation Pydantic, ORM
+        SQLAlchemy, et les services d'IA (LLM, RAG, reranker, NER, APIs temps réel).
+  \item \textbf{Base de données} : PostgreSQL (Neon) en production, SQLite en
+        développement. Le code est agnostique grâce à une simple variable
+        d'environnement \code{DATABASE\_URL}.
+\end{itemize}
+
+\subsection{Modèle de données}
+Les entités principales sont : \code{User}, \code{Route} (catalogue de plus de 182\,000
+liaisons réelles), \code{Trajet} (occurrence datée d'une route), \code{Billet},
+\code{Reclamation}, ainsi que \code{ChatSession} et \code{ChatMessage} pour la
+\textbf{persistance des conversations}.
+
+% ----------------------------------------------------------------------
+\section{L'intelligence conversationnelle}
+
+Le c\oe ur du projet est l'assistant. Sa philosophie : \textbf{un LLM ne suffit pas}.
+Seul, un modèle de langage \emph{invente} (hallucinations) et ignore les données
+récentes ou personnelles. Nous l'avons donc couplé à plusieurs sources de vérité via
+le \textbf{RAG}.
+
+\subsection{LLM --- Google Gemini 2.5 Flash}
+Le modèle reçoit un \emph{system prompt} strict (rôle, périmètre, refus codifiés),
+l'historique de la conversation, le contexte récupéré, puis le message courant. Il ne
+sert qu'à \textbf{rédiger} la réponse, jamais à exécuter une action sensible.
+
+\subsection{Qu'est-ce que le RAG et la vectorisation ?}
+\textbf{RAG} (\emph{Retrieval-Augmented Generation}) consiste à \textbf{récupérer
+l'information pertinente avant de générer} la réponse, puis à l'injecter dans le
+prompt. Pour retrouver cette information par le \emph{sens} et non par mots-clés, on
+\textbf{vectorise} chaque texte : il est converti en un vecteur de nombres
+(384 dimensions) qui encode sa signification. Deux phrases de sens proche ont des
+vecteurs proches, \emph{même si elles n'emploient pas les mêmes mots}. C'est ce
+mécanisme qui permet de relier « je veux annuler » à un article de CGV intitulé
+« conditions de résiliation ».
+
+\subsection{La chaîne RAG en deux étapes}
+\begin{enumerate}[nosep]
+  \item \textbf{Indexation} : les documents (CGV) sont découpés en \emph{chunks}
+        (\code{RecursiveCharacterTextSplitter}), vectorisés par le modèle
+        \code{thenlper/gte-small} (exécuté \textbf{en local}), et stockés dans un index
+        \textbf{FAISS}.
+  \item \textbf{Recherche} : pour chaque question, un \textbf{bi-encoder} remonte
+        rapidement 10 candidats, puis un \textbf{cross-encoder}
+        (\code{ms-marco-MiniLM-L-6-v2}) les \textbf{re-trie} finement (\emph{reranking})
+        pour ne garder que les 3 plus pertinents.
+\end{enumerate}
+Cette double étape offre la précision du cross-encoder sans payer son coût sur tout le
+corpus.
+
+\subsection{Extraction d'entités (NER)}
+Pour fluidifier les parcours sensibles, un modèle \textbf{NER}
+(\code{Jean-Baptiste/camembert-ner}) extrait le prénom et le nom d'une phrase libre.
+L'utilisateur peut ainsi tout dire d'un coup au lieu de répondre à plusieurs questions.
+
+\subsection{Les trois sources de connaissance}
+Selon la question, l'assistant interroge la bonne source :
+\begin{itemize}[nosep]
+  \item \textbf{RAG documentaire} (FAISS) pour les règles (annulation, bagages\dots).
+  \item \textbf{Base de données} pour les questions personnelles. Exemple :
+        « combien de temps va durer mon vol~? » $\rightarrow$ lecture du billet de
+        l'utilisateur, \textbf{calcul de la durée} à partir des horaires, réponse
+        personnalisée.
+  \item \textbf{APIs temps réel et web} pour les données du jour : \textbf{Open-Meteo}
+        (météo, heure locale, fuseau), \textbf{Frankfurter} (taux de change),
+        \textbf{DuckDuckGo} (compléments). Les informations stables (capitale, monnaie
+        d'un pays) ne sont pas appelées : le LLM les connaît déjà.
+\end{itemize}
+
+\subsection{Machine à états pour les actions réelles}
+Modifier, annuler ou réclamer ne sont \textbf{jamais} confiés au LLM. Une
+\textbf{machine à états} déterministe pilote le parcours : intention détectée
+$\rightarrow$ vérification d'identité (numéro de billet, nom, prénom, date de
+naissance) $\rightarrow$ exécution réelle en base $\rightarrow$ envoi de l'e-mail et du
+billet PDF mis à jour. Cette séparation \textbf{exécution / rédaction} élimine les
+hallucinations d'action.
+
+% ----------------------------------------------------------------------
+\section{Fonctionnalités principales}
+\begin{itemize}[nosep]
+  \item Recherche multimodale (aller simple / aller-retour) avec gestion des escales
+        sur plus de 182\,000 liaisons.
+  \item Réservation avec choix de classe et bagages, génération d'un \textbf{billet
+        PDF} (ReportLab) et envoi d'un \textbf{e-mail de confirmation} (Brevo).
+  \item Authentification \textbf{Google} ou e-mail / mot de passe (tokens signés).
+  \item Assistant IA : questions, modification, réclamation, annulation, suivi.
+  \item \textbf{Voix} : dictée et lecture des réponses (Web Speech API).
+  \item Persistance et reprise des conversations, notation en fin de session.
+\end{itemize}
+
+% ----------------------------------------------------------------------
+\section{Sécurité}
+La sécurité du chatbot repose sur plusieurs couches : nettoyage des entrées, garde-fous
+contre insultes et \textbf{injections de prompt}, anti-extraction d'informations sans
+identité vérifiée, \emph{system prompt} restrictif, requêtes SQL paramétrées
+(anti-injection), échappement HTML natif de React (anti-XSS), et triple vérification
+d'identité. Aucun secret n'est présent dans le code : tout passe par des variables
+d'environnement.
+
+% ----------------------------------------------------------------------
+\section{Déploiement}
+
+\subsection{Choix d'hébergement}
+La chaîne RAG impose \code{torch} et deux modèles Transformers en mémoire
+(environ 700~Mo à 1~Go de RAM). Les offres gratuites de type Render ou Railway
+(512~Mo) provoquent un dépassement mémoire. Nous avons donc retenu \textbf{Hugging Face
+Spaces} (16~Go de RAM gratuits, conçu pour les modèles ML).
+
+\subsection{Architecture de production}
+Un \textbf{unique service} (conteneur Docker) sert à la fois l'API, le RAG et le
+frontend statique --- même origine, donc aucun problème de CORS. La base de données est
+externe : \textbf{Neon} (PostgreSQL serverless), volontairement co-localisée avec le
+Space (région \emph{us-east-1}) pour minimiser la latence.
+
+\subsection{Étapes clés}
+\begin{itemize}[nosep]
+  \item \textbf{Image Docker} : installation de \code{torch} en version \textbf{CPU}
+        (200~Mo au lieu de 1,2~Go en CUDA), pré-téléchargement des modèles RAG, écoute
+        sur le port 7860.
+  \item \textbf{Migration des données} : les 182\,511 routes n'existaient que dans le
+        fichier SQLite local ; un script dédié (\code{migrate\_to\_postgres.py}) les
+        copie vers Neon.
+  \item \textbf{Secrets} configurés côté Hugging Face : \code{DATABASE\_URL},
+        \code{AUTH\_SECRET}, \code{GEMINI\_API\_KEY}, etc.
+  \item \textbf{OAuth Google} : ajout de l'URL du Space dans les origines autorisées.
+\end{itemize}
+
+% ----------------------------------------------------------------------
+\section{Difficultés rencontrées et solutions}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{p{6.2cm} p{8.1cm}}
+\toprule
+\textbf{Difficulté} & \textbf{Solution} \\
+\midrule
+DuckDuckGo limité (\code{202 Ratelimit}) & Passage à la librairie \code{ddgs}
+(rotation multi-backend automatique). \\
+Google ne fournit pas la date de naissance & Le formulaire de réservation devient la
+source de vérité ; vérification tolérante à l'inversion nom/prénom. \\
+Hallucinations sur les actions & Séparation stricte machine à états / LLM. \\
+Recherche d'escales lente (15~s) & Index SQL au démarrage + cache en mémoire
+($\rightarrow$ 0,34~s). \\
+RAG « classique » (retour encadrant) & Réécriture en LangChain + FAISS + embeddings
+locaux + reranking + NER. \\
+\code{torch} CUDA trop lourd (1,2~Go) & Installation de \code{torch} CPU dans le Docker. \\
+512~Mo de RAM insuffisants & Choix de Hugging Face Spaces (16~Go). \\
+Migration des 182\,k routes & Script de copie SQLite $\rightarrow$ Neon par lots. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ----------------------------------------------------------------------
+\section{Répartition du travail}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\bfseries}l p{9.5cm}}
+\toprule
+Membre & Contributions \\
+\midrule
+Ako Christian & Conception de l'IA conversationnelle (LLM, chaîne RAG, reranker, NER,
+APIs temps réel), développement backend et mise en production. \\
+Carl Similien & Développement back-end (API FastAPI, base de données) et travail
+d'intégration entre les modules. \\
+Noé Cervera & Mise au point et évaluation des modèles (embeddings, reranking, NER),
+qualité des réponses. \\
+Dhanoush Kessavane & Développement du front-end, conception graphique et rédaction de
+la documentation. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ----------------------------------------------------------------------
+\section{Conclusion et perspectives}
+
+Voyage Assistant répond à l'ensemble des exigences de la SAE2 : application full-stack,
+LLM couplé à une chaîne RAG vectorielle conforme aux concepts du cours, persistance des
+sessions, option vocale, recherche web enrichie d'APIs temps réel, et \textbf{déploiement
+en ligne effectif}. Au-delà de la simple intégration d'un modèle, le projet démontre
+une architecture où l'IA s'appuie sur des \textbf{sources de vérité} pour rester
+factuelle et utile.
+
+\textbf{Perspectives} : enrichir le RAG avec davantage de documents métier, ajouter des
+notifications en temps réel, et industrialiser le déploiement (intégration continue,
+montée en charge).
+
+\end{document}
