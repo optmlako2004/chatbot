@@ -7,6 +7,8 @@
 
 **Application en ligne : https://optimalako-voyage-assistant.hf.space**
 
+**Code source : https://github.com/optmlako2004/chatbot**
+
 Projet réalisé dans le cadre de la **SAE2 BUT3**, domaine **transport**.
 Encadrement : **Bilal Faye** (LIPN, CNRS UMR 7030).
 
