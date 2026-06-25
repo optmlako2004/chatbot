@@ -8,11 +8,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import ChatMessage, ChatSession, User
+from app.models import Billet, ChatMessage, ChatSession, User
 from app.schemas import ChatMessage as ChatMessageIn
 from app.schemas import ChatMessageOut, ChatResponse, ChatStart
 from app.services.auth import get_current_user, get_optional_user
 from app.services.chatbot import QUICK_REPLIES_HOME, process_message
+from app.services.i18n import LANGS, t
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -32,6 +33,7 @@ def start_chat(
 ):
     """Crée une nouvelle session de chat (ou reprend une existante).
     Si un user est authentifié, la session lui est rattachée."""
+    lang = payload.lang if payload.lang in LANGS else "fr"
     if payload.session_token:
         session = db.query(ChatSession).filter(ChatSession.session_token == payload.session_token).first()
         if session is None:
@@ -48,15 +50,37 @@ def start_chat(
         db.commit()
         db.refresh(session)
 
+    # Billet le plus récent de l'utilisateur connecté (pour une accroche utile)
+    recent_billet = None
+    if user:
+        recent_billet = (
+            db.query(Billet)
+            .filter(Billet.user_id == user.id)
+            .order_by(Billet.created_at.desc())
+            .first()
+        )
+
     if not session.messages:
         if user:
-            greeting_text = (
-                f"Bonjour {user.prenom} ! Je suis votre assistant Voyage. "
-                f"Je peux consulter vos réservations, répondre à vos questions sur vos trajets, "
-                f"ou vous aider à trouver une destination. Comment puis-je vous aider ?"
+            greeting_text = t(
+                "Bonjour {prenom}, comment puis-je vous aider ?",
+                lang,
+                prenom=user.prenom,
             )
+            if recent_billet is not None and recent_billet.trajet is not None:
+                trj = recent_billet.trajet
+                greeting_text += " " + t(
+                    "Je vois votre billet {numero} ({depart} → {arrivee}) — c'est à ce sujet ?",
+                    lang,
+                    numero=recent_billet.numero_billet,
+                    depart=trj.depart,
+                    arrivee=trj.arrivee,
+                )
         else:
-            greeting_text = "Bonjour ! Je suis votre assistant Voyage. Comment puis-je vous aider ?"
+            greeting_text = t(
+                "Bonjour ! Je suis votre assistant Voyage. Comment puis-je vous aider ?",
+                lang,
+            )
         greeting = ChatMessage(
             session_id=session.id,
             role="assistant",
@@ -66,9 +90,9 @@ def start_chat(
         db.commit()
         db.refresh(greeting)
 
-    quick = QUICK_REPLIES_HOME.copy()
+    quick = [t(q, lang) for q in QUICK_REPLIES_HOME]
     if user and len(session.messages) <= 1:
-        quick = ["Voir mes réservations", "Mon prochain voyage"] + quick
+        quick = [t("Voir mes réservations", lang), t("Mon prochain voyage", lang)] + quick
 
     last = session.messages[-1] if session.messages else greeting
     return ChatResponse(
@@ -86,6 +110,7 @@ def send_message(
     db: Annotated[Session, Depends(get_db)],
     user: Annotated[Optional[User], Depends(get_optional_user)] = None,
 ):
+    lang = payload.lang if payload.lang in LANGS else "fr"
     session = db.query(ChatSession).filter(ChatSession.session_token == payload.session_token).first()
     if session is None:
         raise HTTPException(status_code=404, detail="Session introuvable.")
@@ -116,14 +141,20 @@ def send_message(
         context=session.contexte or {},
         user=user,
         session_id=session.id,
+        lang=lang,
     )
 
     # Si on a tronqué, on préfixe la réponse du bot d'une note transparente
     answer_text = result["answer"]
     if was_truncated:
         answer_text = (
-            f"(Votre message faisait {len(raw_message)} caractères, j'ai gardé les {MAX_CHAT_MESSAGE} premiers.) "
-            f"{answer_text}"
+            t(
+                "(Votre message faisait {len} caractères, j'ai gardé les {max} premiers.) ",
+                lang,
+                len=len(raw_message),
+                max=MAX_CHAT_MESSAGE,
+            )
+            + answer_text
         )
 
     asst_msg = ChatMessage(
@@ -143,6 +174,7 @@ def send_message(
         tools_used=[result["tool_used"]] if result.get("tool_used") else [],
         message_id=asst_msg.id,
         quick_replies=result.get("quick_replies", []),
+        results=result.get("results", []),
     )
 
 

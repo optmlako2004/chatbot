@@ -15,10 +15,10 @@ const Wordmark = ({ size = 'md' }) => {
 };
 
 const ThemeToggle = ({ active = 'light' }) => (
-  <div className="va-themetoggle" aria-label="Thème">
-    <button className={active === 'light' ? 'is-active' : ''} title="Clair"><ISun size={14} /></button>
-    <button className={active === 'dark' ? 'is-active' : ''} title="Sombre"><IMoon size={14} /></button>
-    <button className={active === 'system' ? 'is-active' : ''} title="Système"><IMonitor size={14} /></button>
+  <div className="va-themetoggle" aria-label={t('Thème')}>
+    <button className={active === 'light' ? 'is-active' : ''} title={t('Clair')}><ISun size={14} /></button>
+    <button className={active === 'dark' ? 'is-active' : ''} title={t('Sombre')}><IMoon size={14} /></button>
+    <button className={active === 'system' ? 'is-active' : ''} title={t('Système')}><IMonitor size={14} /></button>
   </div>
 );
 
@@ -26,15 +26,15 @@ const Nav = ({ bordered = false, theme = 'light' }) => (
   <nav className={`va-nav ${bordered ? 'va-nav--bordered' : ''}`}>
     <Wordmark />
     <div className="va-nav__links">
-      <a>Destinations</a>
-      <a>Mes billets</a>
-      <a>Assistant</a>
-      <a>Aide</a>
+      <a>{t('Destinations')}</a>
+      <a>{t('Mes billets')}</a>
+      <a>{t('Assistant')}</a>
+      <a>{t('Aide')}</a>
     </div>
     <div className="va-nav__right">
-      <button className="va-iconbtn" title="Langue"><IGlobe size={18} /></button>
+      <button className="va-iconbtn" title={t('Langue')}><IGlobe size={18} /></button>
       <ThemeToggle active={theme} />
-      <button className="va-btn va-btn--sm va-btn--secondary" style={{ marginLeft: 6 }}>Se connecter</button>
+      <button className="va-btn va-btn--sm va-btn--secondary" style={{ marginLeft: 6 }}>{t('Se connecter')}</button>
     </div>
   </nav>
 );
@@ -49,16 +49,16 @@ const SearchBar = ({ values, compact = false }) => {
   return (
     <div className="va-search">
       <div className="va-search__field">
-        <span className="va-search__label">Départ</span>
+        <span className="va-search__label">{t('Départ')}</span>
         <span className="va-search__value">
           <IMapPin size={16} style={{ color: 'var(--va-text-muted)' }} />
           {v.from.city}
         </span>
         {!compact && <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{v.from.code}</span>}
       </div>
-      <button className="va-search__swap" title="Inverser"><ISwap size={15} /></button>
+      <button className="va-search__swap" title={t('Inverser')}><ISwap size={15} /></button>
       <div className="va-search__field">
-        <span className="va-search__label">Arrivée</span>
+        <span className="va-search__label">{t('Arrivée')}</span>
         <span className="va-search__value">
           <IMapPin size={16} style={{ color: 'var(--va-text-muted)' }} />
           {v.to.city}
@@ -66,7 +66,7 @@ const SearchBar = ({ values, compact = false }) => {
         {!compact && <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{v.to.code}</span>}
       </div>
       <div className="va-search__field">
-        <span className="va-search__label">Date</span>
+        <span className="va-search__label">{t('Date')}</span>
         <span className="va-search__value">
           <ICalendar size={16} style={{ color: 'var(--va-text-muted)' }} />
           {v.date.label}
@@ -74,7 +74,7 @@ const SearchBar = ({ values, compact = false }) => {
         {!compact && <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{v.date.sub}</span>}
       </div>
       <div className="va-search__field">
-        <span className="va-search__label">Voyageurs</span>
+        <span className="va-search__label">{t('Voyageurs')}</span>
         <span className="va-search__value">
           <IUsers size={16} style={{ color: 'var(--va-text-muted)' }} />
           {v.pax.label}
@@ -83,7 +83,7 @@ const SearchBar = ({ values, compact = false }) => {
       </div>
       <button className="va-search__cta">
         <ISearch size={16} />
-        Rechercher
+        {t('Rechercher')}
       </button>
     </div>
   );
@@ -102,11 +102,11 @@ const ModeCards = ({ active = 'train' }) => (
       <button key={key} className={`va-mode ${active === key ? 'is-active' : ''}`}>
         <div className="va-mode__icon"><Icon size={22} /></div>
         <div>
-          <div className="va-mode__label">{label}</div>
-          <div className="va-mode__sub">{sub}</div>
+          <div className="va-mode__label">{t(label)}</div>
+          <div className="va-mode__sub">{t(sub)}</div>
         </div>
         <div className="va-mode__meta">
-          <span>{meta}</span>
+          <span>{t(meta)}</span>
           <IChevronRight size={14} style={{ color: 'var(--va-text-subtle)' }} />
         </div>
       </button>
@@ -122,7 +122,7 @@ const ModeTabs = ({ active = 'all', onSelect }) => (
       onClick={(e) => { e.stopPropagation(); onSelect && onSelect('all'); }}
     >
       <ISearch size={16} />
-      Tous
+      {t('Tous')}
     </button>
     {MODES.map(({ key, label, Icon }) => (
       <button
@@ -132,7 +132,7 @@ const ModeTabs = ({ active = 'all', onSelect }) => (
         onClick={(e) => { e.stopPropagation(); onSelect && onSelect(key); }}
       >
         <Icon size={16} />
-        {key === 'bus' ? 'Bus' : label}
+        {key === 'bus' ? 'Bus' : t(label)}
       </button>
     ))}
   </div>
@@ -195,7 +195,7 @@ const DestinationsCarousel = ({ perPage = 4, onPick, depart = 'Paris' }) => {
   }, [page, destinations]);
 
   if (loading) return (
-    <div style={{ padding: 40, textAlign: 'center', color: 'var(--va-text-muted)' }}>Chargement des destinations…</div>
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--va-text-muted)' }}>{t('Chargement des destinations…')}</div>
   );
 
   if (!destinations.length) return null;
@@ -220,14 +220,14 @@ const DestinationsCarousel = ({ perPage = 4, onPick, depart = 'Paris' }) => {
                 <div className="va-dest__city">{d.ville}</div>
                 <div className="va-dest__country">{d.pays || ''}</div>
               </div>
-              <span className="va-dest__price">dès {d.prix_min} €</span>
+              <span className="va-dest__price">{t('dès {n} €', { n: d.prix_min })}</span>
             </div>
           </button>
         ))}
       </div>
       {pages > 1 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 28 }}>
-          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p - 1 + pages) % pages)} aria-label="Précédent" style={{ transform: 'rotate(180deg)' }}>
+          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p - 1 + pages) % pages)} aria-label={t('Précédent')} style={{ transform: 'rotate(180deg)' }}>
             <IChevronRight size={16} />
           </button>
           {Array.from({ length: pages }).map((_, i) => (
@@ -236,7 +236,7 @@ const DestinationsCarousel = ({ perPage = 4, onPick, depart = 'Paris' }) => {
               {i + 1}
             </button>
           ))}
-          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p + 1) % pages)} aria-label="Suivant">
+          <button type="button" className="va-iconbtn" onClick={() => setPage((p) => (p + 1) % pages)} aria-label={t('Suivant')}>
             <IChevronRight size={16} />
           </button>
         </div>
@@ -245,7 +245,7 @@ const DestinationsCarousel = ({ perPage = 4, onPick, depart = 'Paris' }) => {
   );
 };
 
-const FAB = ({ label = 'Discuter avec l\u2019assistant' }) => (
+const FAB = ({ label = t('Discuter avec l\u2019assistant') }) => (
   <button className="va-fab">
     <span className="va-fab__avatar"><ISparkles size={16} /></span>
     {label}
@@ -274,8 +274,8 @@ const ValueProps = () => (
           color: 'var(--va-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}><Icon size={16} /></div>
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--va-text)', letterSpacing: '-0.005em' }}>{title}</div>
-          <div style={{ fontSize: 12, color: 'var(--va-text-muted)', marginTop: 2 }}>{sub}</div>
+          <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--va-text)', letterSpacing: '-0.005em' }}>{t(title)}</div>
+          <div style={{ fontSize: 12, color: 'var(--va-text-muted)', marginTop: 2 }}>{t(sub)}</div>
         </div>
       </div>
     ))}
@@ -360,13 +360,13 @@ const normalizePax = (s) => {
 const paxCount = (p) => (p.adultes || 0) + (p.enfants || 0) + (p.bebes || 0);
 const paxLabel = (p) => {
   const t = paxCount(p);
-  return `${t} voyageur${t > 1 ? 's' : ''}`;
+  return t > 1 ? window.t('{n} voyageurs', { n: t }) : window.t('{n} voyageur', { n: t });
 };
 const paxBreakdown = (p) => {
   const parts = [];
-  if (p.adultes) parts.push(`${p.adultes} adulte${p.adultes > 1 ? 's' : ''}`);
-  if (p.enfants) parts.push(`${p.enfants} enfant${p.enfants > 1 ? 's' : ''}`);
-  if (p.bebes)   parts.push(`${p.bebes} bébé${p.bebes > 1 ? 's' : ''}`);
+  if (p.adultes) parts.push(p.adultes > 1 ? window.t('{n} adultes', { n: p.adultes }) : window.t('{n} adulte', { n: p.adultes }));
+  if (p.enfants) parts.push(p.enfants > 1 ? window.t('{n} enfants', { n: p.enfants }) : window.t('{n} enfant', { n: p.enfants }));
+  if (p.bebes)   parts.push(p.bebes > 1 ? window.t('{n} bébés', { n: p.bebes }) : window.t('{n} bébé', { n: p.bebes }));
   return parts.join(' · ');
 };
 
@@ -418,13 +418,13 @@ const TripTypeTabs = ({ value, onChange }) => (
             color: sel ? '#fff' : 'var(--va-text-muted)',
             transition: 'all 120ms ease',
           }}
-        >{t.label}</button>
+        >{window.t(t.label)}</button>
       );
     })}
   </div>
 );
 
-const tripTypeLabel = (t) => (TRIP_TYPES.find(x => x.id === t) || TRIP_TYPES[0]).label;
+const tripTypeLabel = (t) => window.t((TRIP_TYPES.find(x => x.id === t) || TRIP_TYPES[0]).label);
 const isRoundTrip = (t) => t === 'aller_retour';
 
 /* PaxStepper — popover avec +/- pour adultes / enfants / bébés */
@@ -452,8 +452,8 @@ const PaxStepper = ({ value, onChange, onValidate }) => {
   const Row = ({ label, sub, k, min = 0, capByseats = false }) => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
       <div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--va-text)' }}>{label}</div>
-        <div style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{sub}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--va-text)' }}>{t(label)}</div>
+        <div style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t(sub)}</div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <StepBtn onClick={() => set(k, pax[k] - 1)} disabled={pax[k] <= min}>−</StepBtn>
@@ -479,7 +479,7 @@ const PaxStepper = ({ value, onChange, onValidate }) => {
           className="va-btn va-btn--primary"
           style={{ width: '100%', marginTop: 12 }}
           onClick={onValidate}
-        >OK</button>
+        >{t('OK')}</button>
       )}
     </div>
   );

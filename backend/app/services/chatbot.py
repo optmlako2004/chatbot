@@ -12,7 +12,8 @@ from sqlalchemy import func as sqlfunc
 from app.config import settings
 from app.models import Billet, ChatMessage, Reclamation, Route, Trajet, User
 from app.services import gemini, ner, rag, reranker, travel_apis, web_search
-from app.services.identity import verify_billet_identity
+from app.services.i18n import t
+from app.services.identity import verify_billet_dob, verify_billet_identity
 from app.services.numeros import generate_numero_reclamation
 
 logger = logging.getLogger(__name__)
@@ -25,11 +26,30 @@ THANKS = {"merci", "thanks", "thx", "remercie"}
 BYE = {"au revoir", "bye", "ciao", "à bientôt", "à plus", "salut"}
 
 QUICK_REPLIES_HOME = [
+    "Rechercher un voyage",
     "Mon voyage a un problème",
     "Modifier ma réservation",
     "Faire une réclamation",
     "Poser une question",
 ]
+
+# Mots-clés déclenchant la recherche conversationnelle de voyage (slot-filling).
+_SEARCH_KEYWORDS = (
+    "rechercher un voyage", "recherche un voyage", "chercher un voyage",
+    "je veux aller", "je voudrais aller", "j'aimerais aller", "je souhaite aller",
+    "aller à", "aller a", "aller en", "aller au", "partir à", "partir a",
+    "partir pour", "partir en", "trouver un trajet", "trouver un voyage",
+    "réserver un voyage", "reserver un voyage", "billet pour", "trajet pour",
+    "voyage à", "voyager à",
+)
+
+# Mode de transport -> type BDD, pour repérer le transport dans une phrase de recherche.
+_TRANSPORT_MAP = {
+    "avion": "avion", "vol": "avion", "aérien": "avion", "aerien": "avion",
+    "train": "train", "tgv": "train", "eurostar": "train", "ter": "train",
+    "bateau": "bateau", "ferry": "bateau", "traversée": "bateau",
+    "bus": "bus", "autocar": "bus", "car": "bus", "flixbus": "bus",
+}
 
 # Mots-clés des flows : utilisés pour détecter un changement de flow en plein
 # parcours d'identité (l'utilisateur a manifestement renoncé au flow courant).
@@ -69,6 +89,19 @@ _PROMPT_INJECTION = re.compile(
 _BILLET_REFERENCE = re.compile(r"\bTRV-\d{4}-[A-Z0-9]{4,}\b", re.IGNORECASE)
 
 
+def _extract_billet_number(message: str) -> str:
+    """Extrait le numéro de billet d'une phrase libre.
+
+    L'utilisateur écrit souvent « voici mon billet : TRV-2026-ABC123 » plutôt que
+    le code seul : on récupère le motif TRV-AAAA-XXXX où qu'il soit dans la phrase,
+    on le met en majuscules et on retire les espaces parasites. Repli : message
+    entier nettoyé (compat. ancien comportement quand on colle juste le code)."""
+    m = _BILLET_REFERENCE.search(message)
+    if m:
+        return m.group(0).upper().replace(" ", "")
+    return message.strip().upper().replace(" ", "")
+
+
 _DEST_KEYWORDS = (
     "destination", "où aller", "ou aller", "top", "populaire", "recommande",
     "conseil", "quelle ville", "quels endroits", "que visiter", "voyage à",
@@ -98,6 +131,51 @@ def _extract_destination(text: str) -> tuple[str | None, str | None]:
     arrivee = arr.group(1).strip().rstrip("?.,!") if arr else None
     depart  = dep.group(1).strip().rstrip("?.,!") if dep else None
     return arrivee, depart
+
+
+def _detect_transport(text: str) -> str | None:
+    """Repère un mode de transport (avion/train/bateau/bus) dans une phrase."""
+    low = text.lower()
+    for word, ttype in _TRANSPORT_MAP.items():
+        if re.search(rf"\b{re.escape(word)}\b", low):
+            return ttype
+    return None
+
+
+def _is_search_intent(message_lower: str) -> bool:
+    """Détecte une intention de recherche de voyage."""
+    return any(k in message_lower for k in _SEARCH_KEYWORDS)
+
+
+# Clés exactes d'un item GET /trajets exposées au front (le reste est ignoré côté UI).
+_TRAJET_OUT_KEYS = (
+    "id", "type", "compagnie", "classe", "date_depart", "date_arrivee",
+    "depart", "arrivee", "prix", "stops", "escales",
+    "has_wifi", "has_prise", "retard_minutes", "places_dispo",
+)
+
+
+def _search_trajets_results(
+    db: Session, depart: str, arrivee: str, limit: int = 8
+) -> list[dict]:
+    """Recherche des trajets (tous modes) et renvoie des dicts shape GET /trajets.
+
+    Réutilise la logique du routeur trajets (_search_routes + _make_trajet_out)
+    pour garantir un format identique. On ne pré-filtre PAS par transport :
+    le front filtre côté client."""
+    from datetime import timedelta, timezone
+
+    from app.routers.trajets import _make_trajet_out, _search_routes
+
+    date_dt = datetime.now(timezone.utc) + timedelta(days=1)
+    routes = _search_routes(db, None, depart, arrivee, limit=40)
+    trajets = [_make_trajet_out(r, date_dt) for r in routes]
+    trajets.sort(key=lambda x: x.date_depart)
+    out: list[dict] = []
+    for tr in trajets[:limit]:
+        d = tr.model_dump(mode="json")
+        out.append({k: d[k] for k in _TRAJET_OUT_KEYS})
+    return out
 
 
 _MY_BILLETS_KEYWORDS = (
@@ -277,13 +355,85 @@ def _detect_intent(message: str, context: dict[str, Any]) -> str:
     return "freeform"
 
 
+# Noms de mois FR / EN / ES (avec et sans accents) -> numéro de mois.
+_MONTHS = {
+    # français
+    "janvier": 1, "fevrier": 2, "février": 2, "mars": 3, "avril": 4, "mai": 5,
+    "juin": 6, "juillet": 7, "aout": 8, "août": 8, "septembre": 9,
+    "octobre": 10, "novembre": 11, "decembre": 12, "décembre": 12,
+    # anglais
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8,
+    "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+    # espagnol
+    "enero": 1, "febrero": 2, "marzo": 3, "abril": 4, "mayo": 5, "junio": 6,
+    "julio": 7, "agosto": 8, "septiembre": 9, "setiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
+}
+_MONTHS_ALT = "|".join(sorted((re.escape(m) for m in _MONTHS), key=len, reverse=True))
+# Date numérique : 10/01/2004, 10-01-2004, 10.01.2004, 10 01 2004
+_DATE_NUM = re.compile(r"\b(\d{1,2})[\s/.\-](\d{1,2})[\s/.\-](\d{4})\b")
+# Date ISO : 2004-01-10
+_DATE_ISO = re.compile(r"\b(\d{4})[/.\-](\d{1,2})[/.\-](\d{1,2})\b")
+# Date en lettres FR/ES : « 10 janvier 2004 », « 10 de enero de 2004 »
+_DATE_WORD = re.compile(
+    r"\b(\d{1,2})(?:er|ère|ème|e|º|ª)?\s*(?:de\s+)?(" + _MONTHS_ALT + r")\.?\s*(?:de\s+|,\s*)?(\d{4})\b",
+    re.IGNORECASE,
+)
+# Date en lettres EN : « January 10, 2004 » / « Jan 10 2004 »
+_DATE_WORD_EN = re.compile(
+    r"\b(" + _MONTHS_ALT + r")\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+
+
+def _safe_date(year: int, month: int, day: int) -> date | None:
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
 def _parse_date_fr(s: str) -> date | None:
+    """Extrait une date de naissance d'une phrase libre (FR/EN/ES).
+
+    Accepte le code seul (« 10/01/2004 ») comme une phrase entière
+    (« ma date de naissance est le 10 janvier 2004 », « I was born on January 10, 2004 »,
+    « nací el 10 de enero de 2004 »). On cherche le motif n'importe où dans le texte,
+    tous séparateurs et mois en toutes lettres confondus."""
+    if not s:
+        return None
     s = s.strip()
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
+
+    m = _DATE_ISO.search(s)
+    if m:
+        d = _safe_date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if d:
+            return d
+
+    m = _DATE_NUM.search(s)
+    if m:
+        d = _safe_date(int(m.group(3)), int(m.group(2)), int(m.group(1)))  # JJ MM AAAA
+        if d:
+            return d
+
+    m = _DATE_WORD.search(s)
+    if m:
+        mois = _MONTHS.get(m.group(2).lower())
+        if mois:
+            d = _safe_date(int(m.group(3)), mois, int(m.group(1)))
+            if d:
+                return d
+
+    m = _DATE_WORD_EN.search(s)
+    if m:
+        mois = _MONTHS.get(m.group(1).lower())
+        if mois:
+            d = _safe_date(int(m.group(3)), mois, int(m.group(2)))
+            if d:
+                return d
+
     return None
 
 
@@ -304,6 +454,7 @@ def _process_message_inner(
     context: dict[str, Any],
     user: User | None,
     session_id: str | None,
+    lang: str = "fr",
 ) -> dict[str, Any]:
     raw = message
     # Sanitization sauf pour les champs où l'on attend une valeur littérale (nom, etc.)
@@ -313,8 +464,8 @@ def _process_message_inner(
     # 0. Entrée vide après sanitization
     if not message or len(message) < 1:
         return {
-            "answer": "Je n'ai pas reçu de message lisible. Pouvez-vous reformuler votre demande ?",
-            "quick_replies": QUICK_REPLIES_HOME if not context.get("awaiting") else [],
+            "answer": t("Je n'ai pas reçu de message lisible. Pouvez-vous reformuler votre demande ?", lang),
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME] if not context.get("awaiting") else [],
             "context": context,
             "tool_used": None,
         }
@@ -322,8 +473,8 @@ def _process_message_inner(
     # 1. Trop court pour être interprétable hors d'un flow guidé
     if not context.get("awaiting") and len(message) < 2:
         return {
-            "answer": "Pouvez-vous préciser votre demande en quelques mots ? Je peux vous aider à modifier un billet, signaler un retard ou répondre à une question voyage.",
-            "quick_replies": QUICK_REPLIES_HOME,
+            "answer": t("Pouvez-vous préciser votre demande en quelques mots ? Je peux vous aider à modifier un billet, signaler un retard ou répondre à une question voyage.", lang),
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": context,
             "tool_used": None,
         }
@@ -331,12 +482,13 @@ def _process_message_inner(
     # 2. Insulte / langage agressif → désescalade fixe (on évite Gemini pour ne pas amplifier)
     if _OFFENSIVE_PATTERNS.search(message):
         return {
-            "answer": (
+            "answer": t(
                 "Je comprends que vous puissiez être frustré, mais je ne peux pas répondre à ce type de langage. "
                 "Je suis ici pour vous aider sur vos voyages — si vous avez un problème concret avec un billet, "
-                "dites-moi ce qui ne va pas et je ferai de mon mieux pour le résoudre."
+                "dites-moi ce qui ne va pas et je ferai de mon mieux pour le résoudre.",
+                lang,
             ),
-            "quick_replies": QUICK_REPLIES_HOME if not context.get("awaiting") else [],
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME] if not context.get("awaiting") else [],
             "context": context,
             "tool_used": None,
         }
@@ -344,12 +496,13 @@ def _process_message_inner(
     # 3. Sujet dangereux / illégal hors-périmètre
     if _HARMFUL_PATTERNS.search(message):
         return {
-            "answer": (
+            "answer": t(
                 "Je suis l'assistant Voyage et je ne peux répondre qu'aux questions liées à vos déplacements "
                 "(billets, horaires, destinations, démarches voyage). Pour le sujet que vous évoquez, "
-                "merci de vous adresser aux autorités ou services compétents."
+                "merci de vous adresser aux autorités ou services compétents.",
+                lang,
             ),
-            "quick_replies": QUICK_REPLIES_HOME if not context.get("awaiting") else [],
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME] if not context.get("awaiting") else [],
             "context": context,
             "tool_used": None,
         }
@@ -357,40 +510,35 @@ def _process_message_inner(
     # 4. Tentative d'injection de prompt
     if _PROMPT_INJECTION.search(message):
         return {
-            "answer": (
+            "answer": t(
                 "Mes consignes de sécurité ne sont pas modifiables. Je peux vous aider sur un billet précis "
-                "après une vérification d'identité, ou répondre à vos questions de voyage."
+                "après une vérification d'identité, ou répondre à vos questions de voyage.",
+                lang,
             ),
-            "quick_replies": QUICK_REPLIES_HOME if not context.get("awaiting") else [],
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME] if not context.get("awaiting") else [],
             "context": context,
             "tool_used": None,
         }
 
-    # 5. Mention d'un numéro de billet hors du flow guidé → on guide vers la procédure
-    if not context.get("awaiting") and _BILLET_REFERENCE.search(message) and any(
-        k in message.lower() for k in ("info", "détail", "details", "donne", "montre", "affiche", "propriétaire", "qui est")
-    ):
-        return {
-            "answer": (
-                "Pour accéder aux détails d'un billet, je dois d'abord vérifier votre identité. "
-                "Cliquez sur l'action qui correspond à votre besoin, je vous demanderai ensuite "
-                "votre numéro, votre nom, votre prénom et votre date de naissance."
-            ),
-            "quick_replies": QUICK_REPLIES_HOME,
-            "context": context,
-            "tool_used": "identity_check",
-        }
+    # 5. Mention d'un numéro de billet hors du flow guidé → on lance le
+    # déverrouillage par date de naissance (chemin d'entrée « billet collé »).
+    if not context.get("awaiting"):
+        num_ref = _BILLET_REFERENCE.search(message)
+        if num_ref:
+            numero = num_ref.group(0).upper().replace(" ", "")
+            return _start_billet_unlock(db, numero, context, user, lang=lang)
 
     # 6. Changement de flow en plein parcours d'identité : on demande confirmation
-    if context.get("awaiting") in {"numero_billet", "nom", "prenom", "date_naissance"}:
+    if context.get("awaiting") in {"numero_billet", "date_naissance", "unlock_billet", "unlock_dob"}:
         switch = _detect_flow_switch(message.lower())
         if switch and switch != context.get("flow"):
             return {
-                "answer": (
+                "answer": t(
                     "Vous étiez en train d'ouvrir un dossier. Voulez-vous abandonner ce parcours "
-                    "et démarrer un nouveau ? Si oui, choisissez ci-dessous ; sinon je continue le parcours actuel."
+                    "et démarrer un nouveau ? Si oui, choisissez ci-dessous ; sinon je continue le parcours actuel.",
+                    lang,
                 ),
-                "quick_replies": ["Abandonner et recommencer", "Continuer le parcours actuel"],
+                "quick_replies": [t("Abandonner et recommencer", lang), t("Continuer le parcours actuel", lang)],
                 "context": {
                     **context, "awaiting": "confirm_switch",
                     "pending_flow": switch, "resume_awaiting": context.get("awaiting"),
@@ -403,7 +551,7 @@ def _process_message_inner(
         if "abandon" in low or "recommencer" in low:
             new_flow = context.get("pending_flow")
             return {
-                "answer": "Très bien, on recommence. Donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).",
+                "answer": t("Très bien, on recommence. Donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).", lang),
                 "quick_replies": [],
                 "context": {"flow": new_flow, "awaiting": "numero_billet"},
                 "tool_used": None,
@@ -411,14 +559,15 @@ def _process_message_inner(
         resume = context.get("resume_awaiting", "numero_billet")
         msg_map = {
             "numero_billet": "votre numéro de billet (format TRV-2026-XXXXXX) ?",
-            "nom": "votre nom de famille ?",
-            "prenom": "votre prénom ?",
+            "unlock_billet": "votre numéro de billet (format TRV-2026-XXXXXX) ?",
             "date_naissance": "votre date de naissance au format JJ/MM/AAAA ?",
+            "unlock_dob": "votre date de naissance au format JJ/MM/AAAA ?",
         }
         next_ctx = {k: v for k, v in context.items() if k not in ("pending_flow", "resume_awaiting")}
         next_ctx["awaiting"] = resume
+        suite = t(msg_map.get(resume, msg_map["numero_billet"]), lang)
         return {
-            "answer": "Parfait, on continue. Reprenons : " + msg_map.get(resume, msg_map["numero_billet"]),
+            "answer": t("Parfait, on continue. Reprenons : {suite}", lang, suite=suite),
             "quick_replies": [],
             "context": next_ctx,
             "tool_used": None,
@@ -429,196 +578,150 @@ def _process_message_inner(
 
     # === Greetings ===
     if intent == "greeting":
-        greet = _greet_prefix()
+        greet = t(_greet_prefix(), lang)
         salutation = f"{greet}{', ' + prenom if prenom else ''} ! "
-        suite = random.choice([
+        suite = t(random.choice([
             "Comment puis-je vous aider aujourd'hui ?",
             "Que puis-je faire pour vous ?",
             "En quoi puis-je vous être utile ?",
             "Sur quoi puis-je vous aider ?",
-        ])
+        ]), lang)
         return {
             "answer": salutation + suite,
-            "quick_replies": QUICK_REPLIES_HOME,
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": {},
             "tool_used": None,
         }
 
     if intent == "thanks":
         return {
-            "answer": random.choice([
+            "answer": t(random.choice([
                 "Avec plaisir ! N'hésitez pas si vous avez d'autres questions.",
                 "Je vous en prie. Autre chose pour ce voyage ?",
                 "De rien ! Je reste à votre disposition.",
-            ]),
-            "quick_replies": QUICK_REPLIES_HOME,
+            ]), lang),
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": {},
             "tool_used": None,
         }
 
     if intent == "bye":
         return {
-            "answer": random.choice([
+            "answer": t(random.choice([
                 "Bon voyage ! À bientôt.",
                 "À bientôt sur Voyage Assistant !",
                 "Bonne route et à très vite.",
-            ]),
+            ]), lang),
             "quick_replies": [],
             "context": {},
             "tool_used": None,
         }
 
-    # === Flows BDD ===
+    # === Recherche conversationnelle (slot-filling) ===
+    # On entre dans le flow recherche si l'intention est détectée et qu'on n'est
+    # pas déjà au milieu d'un autre parcours guidé.
+    if (
+        not context.get("awaiting")
+        and intent not in ("flow_retard", "flow_modif", "flow_recla", "greeting", "thanks", "bye")
+        and _is_search_intent(message.lower())
+    ):
+        arrivee, depart_city = _extract_destination(message)
+        transport = _detect_transport(message)
+        date_dn = _parse_date_fr(message)
+        search_ctx: dict[str, Any] = {"flow": "flow_search"}
+        if arrivee:
+            search_ctx["search_arrivee"] = arrivee
+        if depart_city:
+            search_ctx["search_depart"] = depart_city
+        if transport:
+            search_ctx["search_transport"] = transport
+        if date_dn:
+            search_ctx["search_date"] = date_dn.isoformat()
+        return _run_search_flow(db, search_ctx, lang=lang)
+
+    if context.get("awaiting") == "search_dest":
+        arrivee, depart_city = _extract_destination(message)
+        # Repli : si pas de préposition, on prend le message entier comme destination.
+        if not arrivee:
+            arrivee = message.strip().rstrip("?.,!")
+        context.pop("awaiting", None)
+        context["search_arrivee"] = arrivee
+        if depart_city and not context.get("search_depart"):
+            context["search_depart"] = depart_city
+        tr = _detect_transport(message)
+        if tr:
+            context["search_transport"] = tr
+        return _run_search_flow(db, context, lang=lang)
+
+    if context.get("awaiting") == "search_depart":
+        arrivee, depart_city = _extract_destination(message)
+        # L'utilisateur peut changer de destination en cours de route.
+        if arrivee:
+            context["search_arrivee"] = arrivee
+        if not depart_city:
+            depart_city = message.strip().rstrip("?.,!")
+        context.pop("awaiting", None)
+        context["search_depart"] = depart_city
+        tr = _detect_transport(message)
+        if tr:
+            context["search_transport"] = tr
+        return _run_search_flow(db, context, lang=lang)
+
+    # === Flows BDD (actions sensibles : déverrouillage par date de naissance) ===
     if intent in ("flow_retard", "flow_modif", "flow_recla") and not context.get("awaiting"):
         context["flow"] = intent
 
-        # Fast-path NER (Séance 4) : si l'utilisateur balance déjà tout en une phrase,
-        # on extrait numero/prenom/nom/date d'un coup et on saute les questions
-        # une-par-une. Filet de sécurité regex conservé dans ner.extract_entities.
+        # Fast-path : si un numéro de billet est déjà dans la phrase (NER ou regex),
+        # on enchaîne directement vers le déverrouillage.
         try:
             ents = ner.extract_entities(message)
         except Exception as exc:
             logger.warning("NER extract a échoué : %s", exc)
             ents = {}
-        if ents.get("numero_billet"):
-            context["numero_billet"] = ents["numero_billet"]
-        if ents.get("prenom"):
-            context["prenom"] = ents["prenom"]
-        if ents.get("nom"):
-            context["nom"] = ents["nom"]
-        if ents.get("date_iso"):
-            try:
-                context["date_naissance_iso"] = ents["date_iso"]
-            except Exception:
-                pass
+        numero = ents.get("numero_billet")
+        if not numero:
+            num_in_msg = _BILLET_REFERENCE.search(message)
+            if num_in_msg:
+                numero = num_in_msg.group(0).upper().replace(" ", "")
+        if numero:
+            return _start_billet_unlock(db, numero, context, user, lang=lang)
 
-        # Choix de la prochaine étape selon ce qui manque
-        if not context.get("numero_billet"):
-            context["awaiting"] = "numero_billet"
-            return {
-                "answer": "Bien sûr. Pour ouvrir votre dossier, donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).",
-                "quick_replies": [], "context": context, "tool_used": None,
-            }
-        # Vérifier l'existence du billet
-        billet = db.query(Billet).filter(Billet.numero_billet == context["numero_billet"]).first()
-        if billet is None:
-            context["awaiting"] = "numero_billet"
-            context.pop("numero_billet", None)
-            return {
-                "answer": "Je n'ai pas trouvé ce numéro de billet. Pouvez-vous me le redonner (format TRV-2026-XXXXXX) ?",
-                "quick_replies": [], "context": context, "tool_used": "query_billet",
-            }
-        if not context.get("nom"):
-            context["awaiting"] = "nom"
-            return {
-                "answer": f"Parfait, billet {billet.numero_billet} trouvé. Pour la sécurité, indiquez-moi votre nom de famille.",
-                "quick_replies": [], "context": context, "tool_used": "query_billet",
-            }
-        if not context.get("prenom"):
-            context["awaiting"] = "prenom"
-            return {
-                "answer": "Merci. Et votre prénom ?",
-                "quick_replies": [], "context": context, "tool_used": None,
-            }
-        if not context.get("date_naissance_iso"):
-            context["awaiting"] = "date_naissance"
-            return {
-                "answer": "Et enfin, votre date de naissance au format JJ/MM/AAAA.",
-                "quick_replies": [], "context": context, "tool_used": None,
-            }
-        # Tout est là d'un coup : on vérifie et on enchaîne le flow
-        from datetime import datetime as _dt
-        try:
-            dt = _dt.fromisoformat(context["date_naissance_iso"])
-        except Exception:
-            dt = None
-        if dt is None:
-            context["awaiting"] = "date_naissance"
-            return {
-                "answer": "Merci. Pour confirmer, votre date de naissance au format JJ/MM/AAAA ?",
-                "quick_replies": [], "context": context, "tool_used": None,
-            }
-        billet_ok = verify_billet_identity(
-            db, context["numero_billet"], context["nom"], context["prenom"], dt
-        )
-        if billet_ok is None:
-            return {
-                "answer": (
-                    "Les informations fournies ne correspondent pas à ce billet. "
-                    "Pour des raisons de sécurité, je ne peux pas donner suite."
-                ),
-                "quick_replies": [], "context": {}, "tool_used": "identity_check",
-            }
-        result = _handle_flow(db, billet_ok, context["flow"], context)
-        result["context"] = {**result.get("context", {}), "last_billet_id": billet_ok.id}
-        return result
-
-    if context.get("awaiting") == "numero_billet":
-        num = message.strip().upper()
-        billet = db.query(Billet).filter(Billet.numero_billet == num).first()
-        if billet is None:
-            return {
-                "answer": "Hm, je ne trouve pas ce billet en base. Vérifiez l'orthographe (format TRV-2026-XXXXXX) ou essayez à nouveau.",
-                "quick_replies": [],
-                "context": context,
-                "tool_used": "query_billet",
-            }
-        context["numero_billet"] = num
-        context["awaiting"] = "nom"
+        context["awaiting"] = "unlock_billet"
         return {
-            "answer": "Parfait, je l'ai trouvé. Pour la sécurité de votre dossier, indiquez-moi votre nom de famille.",
-            "quick_replies": [],
-            "context": context,
-            "tool_used": "query_billet",
+            "answer": t("Bien sûr. Pour ouvrir votre dossier, donnez-moi votre numéro de billet (format TRV-2026-XXXXXX).", lang),
+            "quick_replies": [], "context": context, "tool_used": None,
         }
 
-    if context.get("awaiting") == "nom":
-        context["nom"] = message.strip()
-        context["awaiting"] = "prenom"
-        return {
-            "answer": "Merci. Et votre prénom ?",
-            "quick_replies": [],
-            "context": context,
-            "tool_used": None,
-        }
+    if context.get("awaiting") == "unlock_billet":
+        numero = _extract_billet_number(message)
+        return _start_billet_unlock(db, numero, context, user, lang=lang)
 
-    if context.get("awaiting") == "prenom":
-        context["prenom"] = message.strip()
-        context["awaiting"] = "date_naissance"
-        return {
-            "answer": "Et enfin, votre date de naissance au format JJ/MM/AAAA.",
-            "quick_replies": [],
-            "context": context,
-            "tool_used": None,
-        }
-
-    if context.get("awaiting") == "date_naissance":
+    if context.get("awaiting") == "unlock_dob":
         dt = _parse_date_fr(message)
         if dt is None:
             return {
-                "answer": "Format de date invalide. Merci d'utiliser JJ/MM/AAAA (par exemple 14/03/1995).",
+                "answer": t("Format de date invalide. Merci d'utiliser JJ/MM/AAAA (par exemple 14/03/1995).", lang),
                 "quick_replies": [],
                 "context": context,
                 "tool_used": None,
             }
-        billet = verify_billet_identity(
-            db, context["numero_billet"], context["nom"], context["prenom"], dt
-        )
+        numero = context.get("pending_billet")
+        billet = verify_billet_dob(db, numero, dt) if numero else None
         if billet is None:
             return {
-                "answer": (
-                    "Les informations fournies ne correspondent pas à ce billet. "
+                "answer": t(
+                    "Cette date de naissance ne correspond pas à ce billet. "
                     "Pour des raisons de sécurité, je ne peux pas donner suite. "
-                    "Vérifiez vos informations ou contactez le service client."
+                    "Réessayez (par exemple 14/03/1995) ou contactez le service client.",
+                    lang,
                 ),
                 "quick_replies": [],
-                "context": {},
+                "context": context,
                 "tool_used": "identity_check",
             }
-        result = _handle_flow(db, billet, context["flow"], context)
-        # Mémorise le billet vérifié pour les questions libres ultérieures
-        result["context"] = {**result.get("context", {}), "last_billet_id": billet.id}
-        return result
+        context.pop("awaiting", None)
+        context.pop("pending_billet", None)
+        return _unlock_and_act(db, billet, context, lang=lang)
 
     # === Choix d'une alternative pour modifier le billet ===
     if context.get("awaiting") == "pick_alt":
@@ -629,22 +732,23 @@ def _process_message_inner(
         nouveau = db.get(Trajet, nouveau_trajet_id) if nouveau_trajet_id else None
         if billet is None or nouveau is None:
             return {
-                "answer": "Je n'ai pas reconnu cette option. Merci de cliquer sur l'un des choix proposés.",
+                "answer": t("Je n'ai pas reconnu cette option. Merci de cliquer sur l'un des choix proposés.", lang),
                 "quick_replies": list(alt_map.keys()),
                 "context": context,
                 "tool_used": None,
             }
-        if nouveau.places_dispo <= 0:
+        places = billet.nb_places or 1
+        if nouveau.places_dispo < places:
             return {
-                "answer": "Ce trajet vient d'être complet. Souhaitez-vous voir d'autres alternatives ?",
-                "quick_replies": QUICK_REPLIES_HOME,
+                "answer": t("Ce trajet vient d'être complet. Souhaitez-vous voir d'autres alternatives ?", lang),
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
                 "context": {},
                 "tool_used": "query_trajet",
             }
         # Effectue la modification
         ancien_trajet = billet.trajet
-        ancien_trajet.places_dispo += 1
-        nouveau.places_dispo -= 1
+        ancien_trajet.places_dispo += places
+        nouveau.places_dispo -= places
         billet.trajet_id = nouveau.id
         billet.prix_paye = nouveau.prix
         db.commit()
@@ -682,19 +786,27 @@ def _process_message_inner(
                 pdf_bytes=pdf,
                 montant=f"{billet.prix_paye:.2f} EUR",
                 classe=nouveau.classe or "Standard",
+                lang=lang,
             )
         except Exception as exc:
             logger.warning("Mail de modification échoué : %s", exc)
 
         return {
-            "answer": (
-                f"C'est fait ! Votre billet {billet.numero_billet} est maintenant sur le vol "
-                f"{nouveau.compagnie} du {nouveau.date_depart:%d/%m/%Y à %H:%M} "
-                f"({nouveau.depart} → {nouveau.arrivee}). "
-                f"Nouveau montant : {billet.prix_paye:.0f} €. "
-                f"Un email de confirmation avec le billet mis à jour vient de partir. Autre chose ?"
+            "answer": t(
+                "C'est fait ! Votre billet {numero} est maintenant sur le vol "
+                "{compagnie} du {date} "
+                "({depart} → {arrivee}). "
+                "Nouveau montant : {prix} €. "
+                "Un email de confirmation avec le billet mis à jour vient de partir. Autre chose ?",
+                lang,
+                numero=billet.numero_billet,
+                compagnie=nouveau.compagnie,
+                date=f"{nouveau.date_depart:%d/%m/%Y à %H:%M}",
+                depart=nouveau.depart,
+                arrivee=nouveau.arrivee,
+                prix=f"{billet.prix_paye:.0f}",
             ),
-            "quick_replies": QUICK_REPLIES_HOME,
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": {"last_billet_id": billet.id},
             "tool_used": "query_trajet",
         }
@@ -704,8 +816,8 @@ def _process_message_inner(
         billet = db.get(Billet, context.get("billet_id"))
         if billet is None:
             return {
-                "answer": "Je n'ai plus accès à votre dossier. Recommençons depuis le début.",
-                "quick_replies": QUICK_REPLIES_HOME, "context": {}, "tool_used": None,
+                "answer": t("Je n'ai plus accès à votre dossier. Recommençons depuis le début.", lang),
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME], "context": {}, "tool_used": None,
             }
         choice = message.strip().lower()
         if "indemnit" in choice:
@@ -723,16 +835,18 @@ def _process_message_inner(
             db.add(rec)
             db.commit()
             return {
-                "answer": (
-                    f"Votre demande d'indemnité est enregistrée sous le numéro {rec.numero_suivi}. "
-                    "Le service client traite ces dossiers sous 72 h et vous répondra par email. Autre chose ?"
+                "answer": t(
+                    "Votre demande d'indemnité est enregistrée sous le numéro {numero}. "
+                    "Le service client traite ces dossiers sous 72 h et vous répondra par email. Autre chose ?",
+                    lang,
+                    numero=rec.numero_suivi,
                 ),
-                "quick_replies": QUICK_REPLIES_HOME, "context": {"last_billet_id": billet.id}, "tool_used": "create_reclamation",
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME], "context": {"last_billet_id": billet.id}, "tool_used": "create_reclamation",
             }
         if "annul" in choice or "rembours" in choice:
             ancien_trajet = billet.trajet
-            ancien_trajet.places_dispo += 1
-            billet.statut = "annule"
+            ancien_trajet.places_dispo += billet.nb_places or 1
+            billet.statut = "rembourse"
             db.commit()
             db.refresh(billet)
             try:
@@ -749,25 +863,29 @@ def _process_message_inner(
                     chatbot_url=f"{settings.frontend_url}/assistant",
                     montant=f"{billet.prix_paye:.2f} EUR remboursés",
                     classe=ancien_trajet.classe or "Standard",
+                    lang=lang,
                 )
             except Exception as exc:
                 logger.warning("Mail annulation échoué : %s", exc)
             return {
-                "answer": (
-                    f"Votre billet {billet.numero_billet} est annulé. Le remboursement de "
-                    f"{billet.prix_paye:.0f} € sera crédité sous 5 à 7 jours ouvrés sur votre moyen de paiement. "
-                    "Un email de confirmation vient de partir."
+                "answer": t(
+                    "Votre billet {numero} est annulé. Le remboursement de "
+                    "{prix} € sera crédité sous 5 à 7 jours ouvrés sur votre moyen de paiement. "
+                    "Un email de confirmation vient de partir.",
+                    lang,
+                    numero=billet.numero_billet,
+                    prix=f"{billet.prix_paye:.0f}",
                 ),
-                "quick_replies": QUICK_REPLIES_HOME, "context": {"last_billet_id": billet.id}, "tool_used": "query_billet",
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME], "context": {"last_billet_id": billet.id}, "tool_used": "query_billet",
             }
         if "rien" in choice or "merci" in choice or "non" in choice:
             return {
-                "answer": "Pas de souci, je reste à votre disposition si la situation évolue. Bon voyage.",
-                "quick_replies": QUICK_REPLIES_HOME, "context": {"last_billet_id": billet.id}, "tool_used": None,
+                "answer": t("Pas de souci, je reste à votre disposition si la situation évolue. Bon voyage.", lang),
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME], "context": {"last_billet_id": billet.id}, "tool_used": None,
             }
         return {
-            "answer": "Je n'ai pas reconnu cette option. Choisissez l'une des actions proposées :",
-            "quick_replies": ["Demander une indemnité", "Annuler et me faire rembourser", "Rien, merci"],
+            "answer": t("Je n'ai pas reconnu cette option. Choisissez l'une des actions proposées :", lang),
+            "quick_replies": [t("Demander une indemnité", lang), t("Annuler et me faire rembourser", lang), t("Rien, merci", lang)],
             "context": context, "tool_used": None,
         }
 
@@ -784,23 +902,23 @@ def _process_message_inner(
         if last_id:
             b = db.get(Billet, last_id)
             if b is not None and b.trajet is not None:
-                t = b.trajet
-                duree_min = int((t.date_arrivee - t.date_depart).total_seconds() // 60)
+                trj = b.trajet
+                duree_min = int((trj.date_arrivee - trj.date_depart).total_seconds() // 60)
                 duree_h, duree_m = divmod(duree_min, 60)
                 duree_str = f"{duree_h} h {duree_m:02d}"
-                destination_city = t.arrivee
+                destination_city = trj.arrivee
                 billet_context = (
                     f"CONTEXTE BILLET (l'utilisateur a déjà vérifié son identité, tu peux y faire référence) :\n"
                     f"- Numéro de billet : {b.numero_billet}\n"
                     f"- Voyageur : {b.user.prenom} {b.user.nom}\n"
-                    f"- Mode de transport : {t.type}\n"
-                    f"- Trajet : {t.depart} → {t.arrivee}\n"
-                    f"- Date de départ : {t.date_depart:%d/%m/%Y à %H:%M}\n"
-                    f"- Date d'arrivée prévue : {t.date_arrivee:%d/%m/%Y à %H:%M}\n"
+                    f"- Mode de transport : {trj.type}\n"
+                    f"- Trajet : {trj.depart} → {trj.arrivee}\n"
+                    f"- Date de départ : {trj.date_depart:%d/%m/%Y à %H:%M}\n"
+                    f"- Date d'arrivée prévue : {trj.date_arrivee:%d/%m/%Y à %H:%M}\n"
                     f"- Durée du trajet : {duree_str}\n"
-                    f"- Retard éventuel : {t.retard_minutes} min\n"
-                    f"- Compagnie : {t.compagnie} · Classe : {t.classe or 'Standard'} · Escales : {t.stops or 'direct'}\n"
-                    f"- Wi-Fi : {'oui' if t.has_wifi else 'non'} · Prise : {'oui' if t.has_prise else 'non'}\n"
+                    f"- Retard éventuel : {trj.retard_minutes} min\n"
+                    f"- Compagnie : {trj.compagnie} · Classe : {trj.classe or 'Standard'} · Escales : {trj.stops or 'direct'}\n"
+                    f"- Wi-Fi : {'oui' if trj.has_wifi else 'non'} · Prise : {'oui' if trj.has_prise else 'non'}\n"
                     f"- Statut : {b.statut} · Prix payé : {b.prix_paye:.2f} €\n"
                 )
 
@@ -882,7 +1000,7 @@ def _process_message_inner(
         full_context = "\n\n".join(
             x for x in [db_context, rag_context, billet_context, api_context, web_context] if x
         )
-        gem = gemini.ask(message, history=history, web_context=full_context)
+        gem = gemini.ask(message, history=history, web_context=full_context, lang=lang)
         if gem:
             sources = []
             if used_apis:
@@ -899,34 +1017,175 @@ def _process_message_inner(
                 "context": {"last_billet_id": last_id} if last_id else {},
                 "tool_used": tool,
             }
-        return _fallback_question(message)
+        return _fallback_question(message, lang)
 
-    return _fallback_question(message)
+    return _fallback_question(message, lang)
 
 
-def _handle_flow(db: Session, billet: Billet, flow: str, context: dict) -> dict:
+def _run_search_flow(db: Session, context: dict, lang: str = "fr") -> dict:
+    """Slot-filling de la recherche de voyage.
+
+    Slots dans context : search_arrivee (requis), search_depart (requis),
+    search_transport (optionnel), search_date (optionnel). Demande le prochain
+    slot requis manquant ; quand arrivée + départ sont connus, lance la recherche
+    et renvoie des résultats structurés sous la clé "results"."""
+    arrivee = (context.get("search_arrivee") or "").strip()
+    depart = (context.get("search_depart") or "").strip()
+
+    if not arrivee:
+        context["awaiting"] = "search_dest"
+        return {
+            "answer": t("Où souhaitez-vous aller ?", lang),
+            "quick_replies": [],
+            "context": context,
+            "tool_used": None,
+            "results": [],
+        }
+    if not depart:
+        context["awaiting"] = "search_depart"
+        return {
+            "answer": t("D'où partez-vous ? (votre ville, ou pays)", lang),
+            "quick_replies": [],
+            "context": context,
+            "tool_used": None,
+            "results": [],
+        }
+
+    results = _search_trajets_results(db, depart, arrivee, limit=8)
+    if not results:
+        # Aucun résultat : on propose des alternatives au départ de la même ville.
+        top = _query_top_destinations(db, depart)
+        suggestion = ""
+        if top:
+            suggestion = "\n\n" + top
+        return {
+            "answer": t(
+                "Je n'ai trouvé aucun trajet de {depart} à {arrivee}. "
+                "Voici quelques destinations populaires au départ de {depart} :",
+                lang, depart=depart, arrivee=arrivee,
+            ) + suggestion,
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
+            "context": {},
+            "tool_used": "query_trajet",
+            "results": [],
+        }
+
+    return {
+        "answer": t("Voici les trajets de {depart} à {arrivee} :", lang, depart=depart, arrivee=arrivee),
+        "quick_replies": [],
+        "context": {},
+        "tool_used": "query_trajet",
+        "results": results,
+    }
+
+
+def _unlock_and_act(db: Session, billet: Billet, context: dict, lang: str = "fr") -> dict:
+    """Billet déverrouillé (identité confirmée) : cache + propose les actions."""
+    trajet = billet.trajet
+    new_ctx = {"verified_billet": billet.numero_billet, "last_billet_id": billet.id}
+    flow = context.get("flow")
+    if flow in ("flow_retard", "flow_modif", "flow_recla"):
+        result = _handle_flow(db, billet, flow, context, lang=lang)
+        result_ctx = dict(result.get("context") or {})
+        result_ctx.setdefault("verified_billet", billet.numero_billet)
+        result_ctx.setdefault("last_billet_id", billet.id)
+        result["context"] = result_ctx
+        result.setdefault("results", [])
+        return result
+    # Pas de flow précis : on confirme et on propose les actions sensibles.
+    resume = ""
+    if trajet is not None:
+        resume = f" ({trajet.depart} → {trajet.arrivee})"
+    return {
+        "answer": t(
+            "C'est confirmé, votre identité est validée pour le billet {numero}{resume}. "
+            "Que souhaitez-vous faire ?",
+            lang, numero=billet.numero_billet, resume=resume,
+        ),
+        "quick_replies": [
+            t("Mon voyage a un problème", lang),
+            t("Modifier ma réservation", lang),
+            t("Faire une réclamation", lang),
+        ],
+        "context": new_ctx,
+        "tool_used": "identity_check",
+        "results": [],
+    }
+
+
+def _start_billet_unlock(
+    db: Session, numero: str, context: dict, user: User | None, lang: str = "fr"
+) -> dict:
+    """Point d'entrée commun quand un numéro de billet est fourni.
+
+    - Billet inexistant → on le signale.
+    - Déjà déverrouillé dans cette conversation → on enchaîne directement.
+    - Connecté + billet lui appartient → déverrouillage immédiat, aucune question.
+    - Sinon → on demande UNIQUEMENT la date de naissance.
+    """
+    billet = db.query(Billet).filter(Billet.numero_billet == numero).first()
+    if billet is None:
+        context["awaiting"] = "unlock_billet"
+        context.pop("pending_billet", None)
+        return {
+            "answer": t("Je n'ai pas trouvé ce numéro de billet. Pouvez-vous me le redonner (format TRV-2026-XXXXXX) ?", lang),
+            "quick_replies": [],
+            "context": context,
+            "tool_used": "query_billet",
+            "results": [],
+        }
+
+    # Déjà vérifié dans cette conversation
+    if context.get("verified_billet") == billet.numero_billet:
+        context.pop("awaiting", None)
+        return _unlock_and_act(db, billet, context, lang=lang)
+
+    # Connecté et propriétaire → déverrouillage immédiat
+    if user is not None and billet.user_id == user.id:
+        context.pop("awaiting", None)
+        return _unlock_and_act(db, billet, context, lang=lang)
+
+    # Sinon, on demande la date de naissance uniquement
+    context["pending_billet"] = billet.numero_billet
+    context["awaiting"] = "unlock_dob"
+    return {
+        "answer": t("Pour confirmer que c'est bien vous, quelle est votre date de naissance ?", lang),
+        "quick_replies": [],
+        "context": context,
+        "tool_used": "identity_check",
+        "results": [],
+    }
+
+
+def _handle_flow(db: Session, billet: Billet, flow: str, context: dict, lang: str = "fr") -> dict:
     trajet: Trajet = billet.trajet
 
     if flow == "flow_retard":
         if trajet.retard_minutes > 0:
-            msg = (
-                f"Votre {trajet.type} n°{billet.numero_billet} ({trajet.depart} → {trajet.arrivee} "
-                f"du {trajet.date_depart:%d/%m/%Y à %H:%M}) a {trajet.retard_minutes} minutes de retard. "
-                "Que souhaitez-vous faire ?"
+            msg = t(
+                "Votre {type} n°{numero} ({depart} → {arrivee} du {date}) a {retard} minutes de retard. "
+                "Que souhaitez-vous faire ?",
+                lang,
+                type=trajet.type,
+                numero=billet.numero_billet,
+                depart=trajet.depart,
+                arrivee=trajet.arrivee,
+                date=f"{trajet.date_depart:%d/%m/%Y à %H:%M}",
+                retard=trajet.retard_minutes,
             )
             return {
                 "answer": msg,
                 "quick_replies": [
-                    "Demander une indemnité",
-                    "Annuler et me faire rembourser",
-                    "Rien, merci",
+                    t("Demander une indemnité", lang),
+                    t("Annuler et me faire rembourser", lang),
+                    t("Rien, merci", lang),
                 ],
                 "context": {"awaiting": "retard_action", "billet_id": billet.id},
                 "tool_used": "query_trajet",
             }
         return {
-            "answer": f"Bonne nouvelle : votre {trajet.type} est à l'heure (départ {trajet.date_depart:%d/%m/%Y à %H:%M}).",
-            "quick_replies": QUICK_REPLIES_HOME,
+            "answer": t("Bonne nouvelle : votre {type} est à l'heure (départ {date}).", lang, type=trajet.type, date=f"{trajet.date_depart:%d/%m/%Y à %H:%M}"),
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": {},
             "tool_used": "query_trajet",
         }
@@ -947,8 +1206,8 @@ def _handle_flow(db: Session, billet: Billet, flow: str, context: dict) -> dict:
         )
         if not autres:
             return {
-                "answer": "Aucun trajet alternatif disponible pour cette destination pour le moment. Voulez-vous que je vous alerte dès qu'un créneau se libère ?",
-                "quick_replies": QUICK_REPLIES_HOME,
+                "answer": t("Aucun trajet alternatif disponible pour cette destination pour le moment. Voulez-vous que je vous alerte dès qu'un créneau se libère ?", lang),
+                "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
                 "context": {},
                 "tool_used": "query_trajet",
             }
@@ -956,7 +1215,7 @@ def _handle_flow(db: Session, billet: Billet, flow: str, context: dict) -> dict:
             f"{t.date_depart:%d/%m %H:%M} - {t.compagnie} - {t.prix:.0f}€" for t in autres
         ]
         return {
-            "answer": "Voici 3 alternatives disponibles. Sélectionnez celle qui vous convient :",
+            "answer": t("Voici 3 alternatives disponibles. Sélectionnez celle qui vous convient :", lang),
             "quick_replies": options,
             "context": {
                 "awaiting": "pick_alt",
@@ -977,24 +1236,26 @@ def _handle_flow(db: Session, billet: Billet, flow: str, context: dict) -> dict:
         db.add(rec)
         db.commit()
         return {
-            "answer": (
-                f"C'est noté. Votre réclamation est enregistrée sous le numéro {rec.numero_suivi}. "
-                "Vous recevrez une réponse par email sous 72 heures. Autre chose ?"
+            "answer": t(
+                "C'est noté. Votre réclamation est enregistrée sous le numéro {numero}. "
+                "Vous recevrez une réponse par email sous 72 heures. Autre chose ?",
+                lang,
+                numero=rec.numero_suivi,
             ),
-            "quick_replies": QUICK_REPLIES_HOME,
+            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
             "context": {},
             "tool_used": "create_reclamation",
         }
 
     return {
-        "answer": "Action non reconnue.",
-        "quick_replies": QUICK_REPLIES_HOME,
+        "answer": t("Action non reconnue.", lang),
+        "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
         "context": {},
         "tool_used": None,
     }
 
 
-def _fallback_question(message: str) -> dict:
+def _fallback_question(message: str, lang: str = "fr") -> dict:
     """Réponses utiles quand Gemini est indisponible."""
     m = message.lower()
     if any(k in m for k in ("bagage", "valise")):
@@ -1031,8 +1292,8 @@ def _fallback_question(message: str) -> dict:
             "le mode de transport ou la compagnie."
         )
     return {
-        "answer": ans,
-        "quick_replies": QUICK_REPLIES_HOME,
+        "answer": t(ans, lang),
+        "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
         "context": {},
         "tool_used": "rag_stub",
     }
@@ -1044,16 +1305,23 @@ def process_message(
     context: dict[str, Any] | None = None,
     user: User | None = None,
     session_id: str | None = None,
+    lang: str = "fr",
 ) -> dict[str, Any]:
     """Wrapper qui préserve last_billet_id à travers tous les flows et fallbacks."""
     context = dict(context or {})
     incoming_last_billet = context.get("last_billet_id")
-    result = _process_message_inner(db, message, context, user, session_id)
+    result = _process_message_inner(db, message, context, user, session_id, lang=lang)
     out_ctx = dict(result.get("context") or {})
+    # Préserve verified_billet sur toute la conversation (déverrouillage unique).
+    incoming_verified = context.get("verified_billet")
+    if "verified_billet" not in out_ctx and incoming_verified is not None and not out_ctx.get("awaiting"):
+        out_ctx["verified_billet"] = incoming_verified
     # Préserve last_billet_id si on est encore en plein flow (awaiting != None et clé déjà absente)
     # ou si on revient à un état neutre — sauf si flow_*** vient de poser un nouveau last_billet_id
     if "last_billet_id" not in out_ctx and incoming_last_billet is not None and not out_ctx.get("awaiting"):
         out_ctx["last_billet_id"] = incoming_last_billet
     result["context"] = out_ctx
+    # Résultats de recherche : transients, défaut liste vide partout.
+    result.setdefault("results", [])
     return result
 

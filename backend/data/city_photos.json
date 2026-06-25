@@ -1,5 +1,5 @@
 {
-  "paris": "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=640&q=80",
+  "paris": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/La_Tour_Eiffel_vue_de_la_Tour_Saint-Jacques%2C_Paris_ao%C3%BBt_2014_%282%29.jpg/1280px-La_Tour_Eiffel_vue_de_la_Tour_Saint-Jacques%2C_Paris_ao%C3%BBt_2014_%282%29.jpg",
   "lyon": "https://images.unsplash.com/photo-1562778612-e1e0cda9915c?w=640&q=80",
   "nice": "https://images.unsplash.com/photo-1491166617655-0723a0573d9e?w=640&q=80",
   "bordeaux": "https://images.unsplash.com/photo-1566132127697-4524fea60007?w=640&q=80",
@@ -54,5 +54,6 @@
   "larnaca": "https://images.unsplash.com/photo-1555993539-1732b0280bd36cd?w=640&q=80",
   "taipei": "https://images.unsplash.com/photo-1470004914212-05527e49370b?w=640&q=80",
   "bali": "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=640&q=80",
-  "denver": "https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?w=640&q=80"
+  "denver": "https://images.unsplash.com/photo-1530841377377-3ff06c0ca713?w=640&q=80",
+  "valence": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9a/Valence_-_Esplanade_Champ_de_Mars_-_View_WNW_on_Parc_Jouvet.jpg/1280px-Valence_-_Esplanade_Champ_de_Mars_-_View_WNW_on_Parc_Jouvet.jpg"
 }

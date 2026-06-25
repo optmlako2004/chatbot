@@ -109,6 +109,7 @@ class Billet(Base):
     siege: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     voiture: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     tarif: Mapped[str] = mapped_column(String(50), default="Loisir")
+    nb_places: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
     prix_paye: Mapped[float] = mapped_column(Float, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

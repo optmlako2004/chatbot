@@ -40,28 +40,28 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
   return (
     <div className="va-modal-overlay" onClick={(e) => { if (e.target.classList.contains('va-modal-overlay')) onClose(); }}>
       <div className="va-modal" style={{ maxWidth: 520 }}>
-        <button className="va-modal__close" onClick={onClose} aria-label="Fermer"><IClose size={18} /></button>
-        <h2 className="va-modal__title">Modifier la recherche</h2>
-        <p className="va-modal__sub">Définissez votre trajet, on cherche les billets disponibles.</p>
+        <button className="va-modal__close" onClick={onClose} aria-label={t('Fermer')}><IClose size={18} /></button>
+        <h2 className="va-modal__title">{t('Modifier la recherche')}</h2>
+        <p className="va-modal__sub">{t('Définissez votre trajet, on cherche les billets disponibles.')}</p>
         <div className="va-form">
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
             <TripTypeTabs value={v.tripType || 'aller'} onChange={(t) => setV({ ...v, tripType: t })} />
           </div>
           <div className="va-form__row">
             <div className="va-form__field">
-              <span>Départ</span>
+              <span>{t('Départ')}</span>
               <Autocomplete
                 value={v.depart || ''}
-                placeholder="Ville, gare, aéroport…"
+                placeholder={t('Ville, gare, aéroport…')}
                 onChange={(val) => setV({ ...v, depart: val })}
                 onPick={(it) => setV({ ...v, depart: it.nom })}
               />
             </div>
             <div className="va-form__field">
-              <span>Arrivée</span>
+              <span>{t('Arrivée')}</span>
               <Autocomplete
                 value={v.arrivee || ''}
-                placeholder="Ville, gare, aéroport…"
+                placeholder={t('Ville, gare, aéroport…')}
                 onChange={(val) => setV({ ...v, arrivee: val })}
                 onPick={(it) => setV({ ...v, arrivee: it.nom })}
               />
@@ -69,18 +69,18 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
           </div>
           <div className="va-form__row">
             <label className="va-form__field">
-              <span>{isRoundTrip(v.tripType) ? 'Date aller' : v.tripType === 'retour' ? 'Date retour' : 'Date'}</span>
+              <span>{isRoundTrip(v.tripType) ? t('Date aller') : v.tripType === 'retour' ? t('Date retour') : t('Date')}</span>
               <input type="date" value={v.date || ''} onChange={(e) => setV({ ...v, date: e.target.value })} />
             </label>
             {isRoundTrip(v.tripType) ? (
               <label className="va-form__field">
-                <span>Date retour</span>
+                <span>{t('Date retour')}</span>
                 <input type="date" value={v.dateRetour || ''} min={v.date || undefined}
                   onChange={(e) => setV({ ...v, dateRetour: e.target.value })} />
               </label>
             ) : (
               <div className="va-form__field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--va-text-muted)' }}>Voyageurs</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--va-text-muted)' }}>{t('Voyageurs')}</span>
                 <PaxStepper
                   value={normalizePax(v)}
                   onChange={(pax) => setV({ ...v, pax, passagers: paxCount(pax) })}
@@ -91,7 +91,7 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
           {isRoundTrip(v.tripType) && (
             <div className="va-form__row">
               <div className="va-form__field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--va-text-muted)' }}>Voyageurs</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--va-text-muted)' }}>{t('Voyageurs')}</span>
                 <PaxStepper
                   value={normalizePax(v)}
                   onChange={(pax) => setV({ ...v, pax, passagers: paxCount(pax) })}
@@ -101,12 +101,12 @@ const SearchEditor = ({ values, onClose, onApply, onSearch }) => {
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 20, justifyContent: 'flex-end' }}>
-          <button className="va-btn va-btn--sm va-btn--secondary" onClick={onClose} type="button">Annuler</button>
+          <button className="va-btn va-btn--sm va-btn--secondary" onClick={onClose} type="button">{t('Annuler')}</button>
           <button className="va-btn va-btn--sm" onClick={apply} type="button" style={{ background: 'var(--va-surface-2)' }}>
-            Mettre à jour
+            {t('Mettre à jour')}
           </button>
           <button className="va-btn va-btn--sm va-btn--primary" onClick={search} type="button">
-            <ISearch size={14} /> Rechercher
+            <ISearch size={14} /> {t('Rechercher')}
           </button>
         </div>
       </div>
@@ -136,16 +136,15 @@ const HomePage = ({ go }) => {
   return (
   <div className="va-anim-in">
     <section className="va-hero-b">
-      <span className="va-hero-b__eyebrow">Voyage Assistant — réservation multi-mode</span>
+      <span className="va-hero-b__eyebrow">{t('Voyage Assistant — réservation multi-mode')}</span>
       <h1 className="va-hero-b__title">
-        Où voulez-vous<br />
-        <em>aller cette saison&nbsp;?</em>
+        {t('Où voulez-vous')}<br />
+        <em>{t('aller cette saison ?')}</em>
       </h1>
       <p className="va-hero-b__lead">
-        Avion, train, bateau, bus longue distance. Comparez{' '}
-        {dbStats ? dbStats.compagnies.toLocaleString('fr-FR') : '…'}{' '}
-        compagnies en un seul écran,
-        gérez ensuite vos billets avec un assistant qui ne dort jamais.
+        {t('Avion, train, bateau, bus longue distance. Comparez')}{' '}
+        {dbStats ? dbStats.compagnies.toLocaleString(window.VA_I18N.locale()) : '…'}{' '}
+        {t('compagnies en un seul écran, gérez ensuite vos billets avec un assistant qui ne dort jamais.')}
       </p>
       <ModeTabs active={mode} onSelect={setMode} />
       <div className="va-hero-b__search">
@@ -157,13 +156,13 @@ const HomePage = ({ go }) => {
         />
       </div>
       <div className="va-hero-b__stats">
-        <div><strong>{dbStats ? dbStats.destinations.toLocaleString('fr-FR') : '…'}</strong>destinations</div>
+        <div><strong>{dbStats ? dbStats.destinations.toLocaleString(window.VA_I18N.locale()) : '…'}</strong>{t('destinations')}</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
-        <div><strong>{dbStats ? dbStats.compagnies.toLocaleString('fr-FR') : '…'}</strong>compagnies</div>
+        <div><strong>{dbStats ? dbStats.compagnies.toLocaleString(window.VA_I18N.locale()) : '…'}</strong>{t('compagnies')}</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
-        <div><strong>2,4 min</strong>réservation moyenne</div>
+        <div><strong>2,4 min</strong>{t('réservation moyenne')}</div>
         <div style={{ width: 1, height: 24, background: 'var(--va-border)' }}></div>
-        <div><strong>24 / 7</strong>assistance</div>
+        <div><strong>24 / 7</strong>{t('assistance')}</div>
       </div>
     </section>
 
@@ -174,11 +173,11 @@ const HomePage = ({ go }) => {
     <section className="va-section" style={{ marginTop: 56 }}>
       <div className="va-section__head">
         <div>
-          <div className="va-section__title">Destinations qui appellent</div>
-          <div className="va-section__sub">Sélection éditoriale, départ depuis Paris cette semaine.</div>
+          <div className="va-section__title">{t('Destinations qui appellent')}</div>
+          <div className="va-section__sub">{t('Sélection éditoriale, départ depuis Paris cette semaine.')}</div>
         </div>
         <a className="va-section__link" style={{ cursor: 'pointer' }} onClick={() => go('results', { search: { ...search, type: MODE_KEY_TO_API[mode] } })}>
-          Voir tout <IArrowRight size={14} />
+          {t('Voir tout')} <IArrowRight size={14} />
         </a>
       </div>
       <DestinationsCarousel
@@ -196,17 +195,16 @@ const HomePage = ({ go }) => {
         display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 28,
       }}>
         <div>
-          <div className="va-eyebrow" style={{ color: 'var(--va-accent)', marginBottom: 12 }}>Nouveau — Assistant IA</div>
+          <div className="va-eyebrow" style={{ color: 'var(--va-accent)', marginBottom: 12 }}>{t('Nouveau — Assistant IA')}</div>
           <div style={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--va-text)', marginBottom: 8, textWrap: 'balance' }}>
-            Un retard, une modif, une réclamation&nbsp;? Demandez à l&rsquo;assistant.
+            {t('Un retard, une modif, une réclamation ? Demandez à l’assistant.')}
           </div>
           <div style={{ fontSize: 14.5, color: 'var(--va-text-muted)', maxWidth: 560, lineHeight: 1.55 }}>
-            Il consulte votre billet après une rapide vérification d&rsquo;identité,
-            puis exécute la démarche à votre place — en moyenne en 1 min 40.
+            {t('Il consulte votre billet après une rapide vérification d’identité, puis exécute la démarche à votre place — en moyenne en 1 min 40.')}
           </div>
         </div>
         <button className="va-btn va-btn--primary va-btn--lg" onClick={() => go('assistant')}>
-          <IMessage size={16} /> Parler à l&rsquo;assistant
+          <IMessage size={16} /> {t('Parler à l’assistant')}
         </button>
       </div>
     </section>
@@ -261,7 +259,7 @@ const RouteCard = ({ r, onSelect }) => {
           </div>
           {r.escales && r.escales.length > 0 && (
             <div style={{ fontSize: 10, color: 'var(--va-text-muted)', marginTop: 1 }}>
-              via {r.escales.join(' · ')}
+              {t('via')} {r.escales.join(' · ')}
             </div>
           )}
         </div>
@@ -277,13 +275,13 @@ const RouteCard = ({ r, onSelect }) => {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div className="va-route__price">{r.price}<small> €</small></div>
-          <div className="va-route__sub">par voyageur</div>
+          <div className="va-route__sub">{t('par voyageur')}</div>
         </div>
         <div className="va-route__tags">
-          {r.tags.map((t, i) => (
-            <span key={i} className={`va-route__tag ${t.good ? 'va-route__tag--good' : ''}`}>
-              {t.good && <ICheck size={11} strokeWidth={2.2} />}
-              {t.label}
+          {r.tags.map((tag, i) => (
+            <span key={i} className={`va-route__tag ${tag.good ? 'va-route__tag--good' : ''}`}>
+              {tag.good && <ICheck size={11} strokeWidth={2.2} />}
+              {t(tag.label, tag.vars)}
             </span>
           ))}
         </div>
@@ -305,25 +303,25 @@ const EditSearchPopover = ({ values, onClose, onApply }) => {
   const [v, setV] = React.useState(values);
   return (
     <div className="va-edit-popover">
-      <h4>Modifier la recherche</h4>
+      <h4>{t('Modifier la recherche')}</h4>
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
         <TripTypeTabs value={v.tripType || 'aller'} onChange={(t) => setV({ ...v, tripType: t })} />
       </div>
       <div className="va-edit-popover__row">
         <div className="va-form__field">
-          <span>Départ</span>
+          <span>{t('Départ')}</span>
           <Autocomplete
             value={v.depart || ''}
-            placeholder="Ville, gare, aéroport…"
+            placeholder={t('Ville, gare, aéroport…')}
             onChange={(val) => setV({ ...v, depart: val })}
             onPick={(it) => setV({ ...v, depart: it.nom })}
           />
         </div>
         <div className="va-form__field">
-          <span>Arrivée</span>
+          <span>{t('Arrivée')}</span>
           <Autocomplete
             value={v.arrivee || ''}
-            placeholder="Ville, gare, aéroport…"
+            placeholder={t('Ville, gare, aéroport…')}
             onChange={(val) => setV({ ...v, arrivee: val })}
             onPick={(it) => setV({ ...v, arrivee: it.nom })}
           />
@@ -331,18 +329,18 @@ const EditSearchPopover = ({ values, onClose, onApply }) => {
       </div>
       <div className="va-edit-popover__row">
         <label className="va-form__field">
-          <span>{isRoundTrip(v.tripType) ? 'Date aller' : v.tripType === 'retour' ? 'Date retour' : 'Date'}</span>
+          <span>{isRoundTrip(v.tripType) ? t('Date aller') : v.tripType === 'retour' ? t('Date retour') : t('Date')}</span>
           <input type="date" value={v.date || ''} onChange={(e) => setV({ ...v, date: e.target.value })} />
         </label>
         {isRoundTrip(v.tripType) ? (
           <label className="va-form__field">
-            <span>Date retour</span>
+            <span>{t('Date retour')}</span>
             <input type="date" value={v.dateRetour || ''} min={v.date || undefined}
               onChange={(e) => setV({ ...v, dateRetour: e.target.value })} />
           </label>
         ) : (
           <div className="va-form__field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span>Voyageurs</span>
+            <span>{t('Voyageurs')}</span>
             <PaxStepper
               value={normalizePax(v)}
               onChange={(pax) => setV({ ...v, pax, passagers: paxCount(pax) })}
@@ -353,7 +351,7 @@ const EditSearchPopover = ({ values, onClose, onApply }) => {
       {isRoundTrip(v.tripType) && (
         <div className="va-edit-popover__row">
           <div className="va-form__field" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span>Voyageurs</span>
+            <span>{t('Voyageurs')}</span>
             <PaxStepper
               value={normalizePax(v)}
               onChange={(pax) => setV({ ...v, pax, passagers: paxCount(pax) })}
@@ -362,9 +360,9 @@ const EditSearchPopover = ({ values, onClose, onApply }) => {
         </div>
       )}
       <div className="va-edit-popover__actions">
-        <button className="va-btn va-btn--sm va-btn--secondary" onClick={onClose} type="button">Annuler</button>
+        <button className="va-btn va-btn--sm va-btn--secondary" onClick={onClose} type="button">{t('Annuler')}</button>
         <button className="va-btn va-btn--sm va-btn--primary" onClick={() => { onApply(v); onClose(); }} type="button">
-          Appliquer
+          {t('Appliquer')}
         </button>
       </div>
     </div>
@@ -421,16 +419,19 @@ const ResultsPage = ({ go, ctx }) => {
     const hh = (d) => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const mins = Math.round((arrive - depart) / 60000);
     const dur = `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2,'0')}`;
+    const fmtLong = (d) => isNaN(d) ? '' : d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const fmtShort = (d) => isNaN(d) ? '' : d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     const tags = [];
     if (t.has_wifi) tags.push({ label: 'Wi-Fi', good: false });
     if (t.has_prise) tags.push({ label: 'Prise', good: false });
     if (t.type === 'train' || t.type === 'bus') tags.push({ label: 'Émission –93 %', good: true });
     if (t.prix < 35) tags.push({ label: 'Petit prix', good: true });
-    if (t.retard_minutes > 0) tags.push({ label: `Retard ${t.retard_minutes} min`, good: false });
+    if (t.retard_minutes > 0) tags.push({ label: 'Retard {min} min', vars: { min: t.retard_minutes }, good: false });
     return {
       id: t.id, _api: t,
       company: t.compagnie, class: t.classe || 'Standard',
       depart: hh(depart), arrive: hh(arrive),
+      dateLong: fmtLong(depart), dateShort: fmtShort(depart), dateArriveeShort: fmtShort(arrive),
       from: t.depart, to: t.arrivee,
       dur, stops: t.stops || 'direct',
       escales: t.escales || [],
@@ -524,18 +525,18 @@ const ResultsPage = ({ go, ctx }) => {
       <div className="va-pagehead">
         <div className="va-pagehead__top">
           <div className="va-crumb">
-            <a onClick={() => go('home')}>Accueil</a>
+            <a onClick={() => go('home')}>{t('Accueil')}</a>
             <span className="va-crumb__sep">/</span>
-            <span className="va-crumb__current">Trajets disponibles</span>
+            <span className="va-crumb__current">{t('Trajets disponibles')}</span>
           </div>
           <div className="va-stepper">
-            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">Recherche</span></div>
+            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">{t('Recherche')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item is-active"><span className="va-stepper__num">2</span><span className="va-stepper__label">Trajet</span></div>
+            <div className="va-stepper__item is-active"><span className="va-stepper__num">2</span><span className="va-stepper__label">{t('Trajet')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item"><span className="va-stepper__num">3</span><span className="va-stepper__label">Voyageurs</span></div>
+            <div className="va-stepper__item"><span className="va-stepper__num">3</span><span className="va-stepper__label">{t('Voyageurs')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item"><span className="va-stepper__num">4</span><span className="va-stepper__label">Confirmation</span></div>
+            <div className="va-stepper__item"><span className="va-stepper__num">4</span><span className="va-stepper__label">{t('Confirmation')}</span></div>
           </div>
         </div>
         <h1 className="va-pagehead__title">
@@ -553,13 +554,13 @@ const ResultsPage = ({ go, ctx }) => {
           {isRoundTrip(currentSearch.tripType) && currentSearch.dateRetour && (
             <>
               <span className="va-recap__sep"></span>
-              <span className="va-recap__pill"><ICalendar size={14} /> retour {currentSearch.dateRetour}</span>
+              <span className="va-recap__pill"><ICalendar size={14} /> {t('retour')} {currentSearch.dateRetour}</span>
             </>
           )}
           <span className="va-recap__sep"></span>
           <span className="va-recap__pill" title={paxBreakdown(normalizePax(currentSearch))}><IUsers size={14} /> {paxLabel(normalizePax(currentSearch))}</span>
           <button className="va-recap__edit" onClick={() => setEditOpen(v => !v)} type="button">
-            <IEdit size={12} /> Modifier
+            <IEdit size={12} /> {t('Modifier')}
           </button>
           {editOpen && (
             <EditSearchPopover
@@ -575,19 +576,19 @@ const ResultsPage = ({ go, ctx }) => {
         <aside className="va-filters">
           <div className="va-filter">
             <div className="va-filter__title">
-              Mode de transport
+              {t('Mode de transport')}
               <small>{Object.entries(counts).filter(([k,v]) => ['train','plane','bus','ship'].includes(k) && v > 0).length}</small>
             </div>
             <div className="va-filter__rows">
-              <Checkrow label="Train"  count={counts.train} active={filters.train} onClick={() => toggleSmart('train')} />
-              <Checkrow label="Avion"  count={counts.plane} active={filters.plane} onClick={() => toggleSmart('plane')} />
-              <Checkrow label="Bus"    count={counts.bus}   active={filters.bus}   onClick={() => toggleSmart('bus')} />
-              <Checkrow label="Bateau" count={counts.ship}  active={filters.ship}  onClick={() => toggleSmart('ship')} />
+              <Checkrow label={t('Train')}  count={counts.train} active={filters.train} onClick={() => toggleSmart('train')} />
+              <Checkrow label={t('Avion')}  count={counts.plane} active={filters.plane} onClick={() => toggleSmart('plane')} />
+              <Checkrow label={t('Bus')}    count={counts.bus}   active={filters.bus}   onClick={() => toggleSmart('bus')} />
+              <Checkrow label={t('Bateau')} count={counts.ship}  active={filters.ship}  onClick={() => toggleSmart('ship')} />
             </div>
           </div>
 
           <div className="va-filter">
-            <div className="va-filter__title">Budget</div>
+            <div className="va-filter__title">{t('Budget')}</div>
             <div className="va-range">
               <input
                 type="range"
@@ -605,20 +606,20 @@ const ResultsPage = ({ go, ctx }) => {
           </div>
 
           <div className="va-filter">
-            <div className="va-filter__title">Horaire de départ</div>
+            <div className="va-filter__title">{t('Horaire de départ')}</div>
             <div className="va-filter__rows">
-              <Checkrow label="Matin (06:00 – 12:00)"      count={counts.morning}   active={filters.morning}   onClick={() => toggle('morning')} />
-              <Checkrow label="Après-midi (12:00 – 18:00)" count={counts.afternoon} active={filters.afternoon} onClick={() => toggle('afternoon')} />
-              <Checkrow label="Soir (18:00 – 24:00)"       count={counts.evening}   active={filters.evening}   onClick={() => toggle('evening')} />
+              <Checkrow label={t('Matin (06:00 – 12:00)')}      count={counts.morning}   active={filters.morning}   onClick={() => toggle('morning')} />
+              <Checkrow label={t('Après-midi (12:00 – 18:00)')} count={counts.afternoon} active={filters.afternoon} onClick={() => toggle('afternoon')} />
+              <Checkrow label={t('Soir (18:00 – 24:00)')}       count={counts.evening}   active={filters.evening}   onClick={() => toggle('evening')} />
             </div>
           </div>
 
           <div className="va-filter">
-            <div className="va-filter__title">Escales</div>
+            <div className="va-filter__title">{t('Escales')}</div>
             <div className="va-filter__rows">
-              <Checkrow label="Direct"   count={counts.direct}   active={filters.direct}   onClick={() => toggleSmart('direct')} />
-              <Checkrow label="1 escale" count={counts.oneStop}  active={filters.oneStop}  onClick={() => toggleSmart('oneStop')} />
-              <Checkrow label="2 escales" count={counts.twoStops} active={filters.twoStops} onClick={() => toggleSmart('twoStops')} />
+              <Checkrow label={t('Direct')}   count={counts.direct}   active={filters.direct}   onClick={() => toggleSmart('direct')} />
+              <Checkrow label={t('1 escale')} count={counts.oneStop}  active={filters.oneStop}  onClick={() => toggleSmart('oneStop')} />
+              <Checkrow label={t('2 escales')} count={counts.twoStops} active={filters.twoStops} onClick={() => toggleSmart('twoStops')} />
             </div>
           </div>
         </aside>
@@ -634,12 +635,12 @@ const ResultsPage = ({ go, ctx }) => {
                 <IAlert size={20} style={{ color: 'var(--va-accent)', flexShrink: 0, marginTop: 2 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>
-                    Désolé — aucun trajet trouvé pour {currentSearch.depart} → <strong>{currentSearch.arrivee}</strong>
+                    {t('Désolé — aucun trajet trouvé pour {depart} →', { depart: currentSearch.depart })} <strong>{currentSearch.arrivee}</strong>
                   </div>
                   <div style={{ fontSize: 13.5, color: 'var(--va-text-muted)', lineHeight: 1.5 }}>
-                    Cette destination n’est pas (encore) dans notre catalogue, ou aucun trajet n’est programmé.
-                    Voici d’<strong>autres destinations</strong> au départ de <strong>{currentSearch.depart}</strong> —
-                    ces trajets ne vont <strong>pas</strong> à {currentSearch.arrivee}.
+                    {t('Cette destination n’est pas (encore) dans notre catalogue, ou aucun trajet n’est programmé.')}{' '}
+                    {t('Voici d’')}<strong>{t('autres destinations')}</strong>{t(' au départ de ')}<strong>{currentSearch.depart}</strong> —{' '}
+                    {t('ces trajets ne vont ')}<strong>{t('pas')}</strong>{t(' à ')}{currentSearch.arrivee}.
                   </div>
                   <button
                     type="button"
@@ -647,7 +648,7 @@ const ResultsPage = ({ go, ctx }) => {
                     style={{ marginTop: 10 }}
                     onClick={() => setEditOpen(true)}
                   >
-                    Modifier la recherche
+                    {t('Modifier la recherche')}
                   </button>
                 </div>
               </div>
@@ -660,23 +661,23 @@ const ResultsPage = ({ go, ctx }) => {
               fontSize: 13.5, color: 'var(--va-text)',
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
-              <span><strong>{trajets.length}</strong> trajets disponibles mais cachés par vos filtres.</span>
+              <span><strong>{trajets.length}</strong> {t('trajets disponibles mais cachés par vos filtres.')}</span>
               <button className="va-btn va-btn--sm va-btn--secondary" onClick={resetFilters} type="button">
-                Réinitialiser les filtres
+                {t('Réinitialiser les filtres')}
               </button>
             </div>
           )}
           <div className="va-resultbar">
             <div className="va-resultbar__count">
-              <strong>{sorted.length} trajets</strong>
-              {sorted.length > 0 && <em>· dès {Math.min(...sorted.map(r => r.price))} €</em>}
+              <strong>{t('{n} trajets', { n: sorted.length })}</strong>
+              {sorted.length > 0 && <em>· {t('dès {prix} €', { prix: Math.min(...sorted.map(r => r.price)) })}</em>}
             </div>
             <div className="va-sort">
               {[
-                ['best', 'Meilleur'],
-                ['cheap', 'Moins cher'],
-                ['fast', 'Plus rapide'],
-                ['early', 'Départ tôt'],
+                ['best', t('Meilleur')],
+                ['cheap', t('Moins cher')],
+                ['fast', t('Plus rapide')],
+                ['early', t('Départ tôt')],
               ].map(([k, l]) => (
                 <button key={k} className={sort === k ? 'is-active' : ''} onClick={() => setSort(k)}>{l}</button>
               ))}
@@ -686,12 +687,12 @@ const ResultsPage = ({ go, ctx }) => {
           <div className="va-resultlist">
             {loading && (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--va-text-muted)' }}>
-                Recherche en cours…
+                {t('Recherche en cours…')}
               </div>
             )}
             {!loading && sorted.length === 0 && (
               <div style={{ padding: 40, textAlign: 'center', color: 'var(--va-text-muted)' }}>
-                Aucun trajet trouvé. Essayez d&rsquo;élargir vos critères.
+                {t('Aucun trajet trouvé. Essayez d’élargir vos critères.')}
               </div>
             )}
             {!loading && sorted.map((r) => (
@@ -739,6 +740,19 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState(null);
 
+  // Photo de fond du hero : illustre la ville de DÉPART (Paris → Tour Eiffel, etc.).
+  // L'image vient de l'API /images (Wikipedia puis Pixabay), avec repli sur la photo générique.
+  const [heroPhoto, setHeroPhoto] = React.useState(BOOKING_PHOTO);
+  React.useEffect(() => {
+    const city = r && r.from ? r.from : null;
+    if (!city) return;
+    let alive = true;
+    window.VA_API.cityImage(city)
+      .then((res) => { if (alive && res && res.url) setHeroPhoto(res.url); })
+      .catch(() => { /* on garde la photo par défaut */ });
+    return () => { alive = false; };
+  }, [r && r.from]);
+
   const dobToISO = (s) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
     const m = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
@@ -750,16 +764,16 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
     setError(null);
     if (!auth || !auth.isAuth) { onRequestLogin && onRequestLogin('signup'); return; }
     const missing = [];
-    if (!form.nom) missing.push('Nom');
-    if (!form.prenom) missing.push('Prénom');
-    if (!form.dob) missing.push('Date de naissance');
-    if (!form.email) missing.push('Email');
+    if (!form.nom) missing.push(t('Nom'));
+    if (!form.prenom) missing.push(t('Prénom'));
+    if (!form.dob) missing.push(t('Date de naissance'));
+    if (!form.email) missing.push(t('Email'));
     if (missing.length) {
-      setError(`Merci de remplir : ${missing.join(', ')}.`);
+      setError(t('Merci de remplir : {champs}.', { champs: missing.join(', ') }));
       return;
     }
     const dob = dobToISO(form.dob);
-    if (!dob) { setError("Date de naissance invalide (utiliser JJ/MM/AAAA)."); return; }
+    if (!dob) { setError(t("Date de naissance invalide (utiliser JJ/MM/AAAA).")); return; }
     if (!r._api || !r._api.id) {
       go('confirm', { route: r, form, totals, pax, classId, bags });
       return;
@@ -779,7 +793,7 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
       });
       go('confirm', { route: r, form, billet, ticketNum: billet.numero_billet, totals, pax, classId, bags });
     } catch (e) {
-      setError(`Erreur de réservation : ${e.message}`);
+      setError(t('Erreur de réservation : {message}', { message: e.message }));
     } finally { setBusy(false); }
   };
 
@@ -788,33 +802,33 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
       <div className="va-pagehead">
         <div className="va-pagehead__top">
           <div className="va-crumb">
-            <a onClick={() => go('home')}>Accueil</a>
+            <a onClick={() => go('home')}>{t('Accueil')}</a>
             <span className="va-crumb__sep">/</span>
-            <a onClick={() => go('results')}>Résultats</a>
+            <a onClick={() => go('results')}>{t('Résultats')}</a>
             <span className="va-crumb__sep">/</span>
-            <span className="va-crumb__current">Réservation</span>
+            <span className="va-crumb__current">{t('Réservation')}</span>
           </div>
           <div className="va-stepper">
-            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">Recherche</span></div>
+            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">{t('Recherche')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">Trajet</span></div>
+            <div className="va-stepper__item is-done"><span className="va-stepper__num"><ICheck size={11} strokeWidth={3} /></span><span className="va-stepper__label">{t('Trajet')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item is-active"><span className="va-stepper__num">3</span><span className="va-stepper__label">Voyageurs</span></div>
+            <div className="va-stepper__item is-active"><span className="va-stepper__num">3</span><span className="va-stepper__label">{t('Voyageurs')}</span></div>
             <span className="va-stepper__line"></span>
-            <div className="va-stepper__item"><span className="va-stepper__num">4</span><span className="va-stepper__label">Confirmation</span></div>
+            <div className="va-stepper__item"><span className="va-stepper__num">4</span><span className="va-stepper__label">{t('Confirmation')}</span></div>
           </div>
         </div>
       </div>
 
       <div className="va-booking">
         <div>
-          <div className="va-booking__hero" style={{ backgroundImage: `url(${BOOKING_PHOTO})` }}>
+          <div className="va-booking__hero" style={{ backgroundImage: `url(${heroPhoto})` }}>
             <div className="va-booking__heroCap">
               <div>
-                <small>Trajet · {r.mode === 'plane' ? 'Vol' : r.mode === 'bus' ? 'Bus longue distance' : r.mode === 'ship' ? 'Bateau' : 'Train'} {r.company}</small>
+                <small>{t('Trajet')} · {r.mode === 'plane' ? t('Vol') : r.mode === 'bus' ? t('Bus longue distance') : r.mode === 'ship' ? t('Bateau') : t('Train')} {r.company}</small>
                 <h2>{r.from.split(' ')[0]} → {r.to.split(' ')[0]}</h2>
               </div>
-              <span className="va-booking__heroBadge">Samedi 13 juin 2026</span>
+              {(r.dateLong || r.dateShort) && <span className="va-booking__heroBadge">{r.dateLong || r.dateShort}</span>}
             </div>
           </div>
 
@@ -822,39 +836,39 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
             <div className="va-detailroute">
               <div className="va-detailroute__stop">
                 <div className="va-detailroute__time">{r.depart}</div>
-                <div className="va-detailroute__date">Sam. 13 juin 2026</div>
+                {r.dateShort && <div className="va-detailroute__date">{r.dateShort}</div>}
                 <div className="va-detailroute__city">{r.from}</div>
-                <div className="va-detailroute__sub">{r.from.includes('CDG') ? 'Terminal 2F' : 'Hall 2 · Voie L'}</div>
+                <div className="va-detailroute__sub">{r.from.includes('CDG') ? t('Terminal 2F') : t('Hall 2 · Voie L')}</div>
               </div>
               <div className="va-detailroute__sep">
                 <div>{r.dur}</div>
                 <div className="va-detailroute__sep-line"><StopDots stops={r.stops} /></div>
                 <div style={{ color: r.escales && r.escales.length > 0 ? 'var(--va-accent)' : undefined }}>{r.stops}</div>
-                {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>via {r.escales.join(' · ')}</div>}
+                {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>{t('via')} {r.escales.join(' · ')}</div>}
               </div>
               <div className="va-detailroute__stop va-detailroute__stop--right">
                 <div className="va-detailroute__time">{r.arrive}</div>
-                <div className="va-detailroute__date">Sam. 13 juin 2026</div>
+                {(r.dateArriveeShort || r.dateShort) && <div className="va-detailroute__date">{r.dateArriveeShort || r.dateShort}</div>}
                 <div className="va-detailroute__city">{r.to}</div>
-                <div className="va-detailroute__sub">{r.to.includes('LYS') ? 'Terminal 1' : 'Voie 3'}</div>
+                <div className="va-detailroute__sub">{r.to.includes('LYS') ? t('Terminal 1') : t('Voie 3')}</div>
               </div>
             </div>
             <div className="va-inforow">
               <div>
-                <span className="va-inforow__label">Compagnie</span>
+                <span className="va-inforow__label">{t('Compagnie')}</span>
                 <span className="va-inforow__value"><Icon size={14} /> {r.company}</span>
               </div>
               <div>
-                <span className="va-inforow__label">Classe / tarif</span>
+                <span className="va-inforow__label">{t('Classe / tarif')}</span>
                 <span className="va-inforow__value">{r.class}</span>
               </div>
               <div>
-                <span className="va-inforow__label">Échange</span>
-                <span className="va-inforow__value">Avant J–1</span>
+                <span className="va-inforow__label">{t('Échange')}</span>
+                <span className="va-inforow__value">{t('Avant J–1')}</span>
               </div>
               <div>
-                <span className="va-inforow__label">Remboursement</span>
-                <span className="va-inforow__value">Partiel</span>
+                <span className="va-inforow__label">{t('Remboursement')}</span>
+                <span className="va-inforow__value">{t('Partiel')}</span>
               </div>
             </div>
           </div>
@@ -862,8 +876,8 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
           {/* Sélection de classe */}
           <div className="va-card" style={{ marginBottom: 18 }}>
             <div>
-              <div className="va-card__title">Choisissez votre classe</div>
-              <div className="va-card__sub">Le tarif s’adapte au confort et aux services inclus.</div>
+              <div className="va-card__title">{t('Choisissez votre classe')}</div>
+              <div className="va-card__sub">{t('Le tarif s’adapte au confort et aux services inclus.')}</div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(classOpts.length, 4)}, 1fr)`, gap: 12, marginTop: 14 }}>
               {classOpts.map((c) => {
@@ -881,10 +895,10 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
                       fontFamily: 'inherit',
                     }}
                   >
-                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--va-text)' }}>{c.label}</div>
-                    <div style={{ fontSize: 12, color: 'var(--va-text-muted)', marginTop: 4, minHeight: 32 }}>{c.sub}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--va-text)' }}>{t(c.label)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--va-text-muted)', marginTop: 4, minHeight: 32 }}>{t(c.sub)}</div>
                     <div style={{ marginTop: 8, fontSize: 13, color: sel ? 'var(--va-accent)' : 'var(--va-text)', fontWeight: 600 }}>
-                      {adultPrice} € <span style={{ fontWeight: 400, color: 'var(--va-text-muted)' }}>/ adulte</span>
+                      {adultPrice} € <span style={{ fontWeight: 400, color: 'var(--va-text-muted)' }}>{t('/ adulte')}</span>
                     </div>
                   </button>
                 );
@@ -895,14 +909,14 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
           {/* Bagages */}
           <div className="va-card" style={{ marginBottom: 18 }}>
             <div>
-              <div className="va-card__title">Bagages</div>
+              <div className="va-card__title">{t('Bagages')}</div>
               <div className="va-card__sub">{BAG_INCLUDED_LABEL}</div>
             </div>
             {bagOpts.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--va-text-muted)', marginTop: 10 }}>
-                {r.mode === 'train' ? 'En train : bagages illimités inclus dans la limite de ce que vous portez.' :
-                 r.mode === 'ship' ? 'À bord : bagages illimités inclus selon votre cabine.' :
-                 'Aucune option de bagage supplémentaire pour ce mode.'}
+                {r.mode === 'train' ? t('En train : bagages illimités inclus dans la limite de ce que vous portez.') :
+                 r.mode === 'ship' ? t('À bord : bagages illimités inclus selon votre cabine.') :
+                 t('Aucune option de bagage supplémentaire pour ce mode.')}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
@@ -916,8 +930,8 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--va-text)' }}>{b.label}</div>
-                      <div style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{b.sub} · {b.price} € / pièce</div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--va-text)' }}>{t(b.label)}</div>
+                      <div style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t(b.sub)} · {b.price} € {t('/ pièce')}</div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <StepBtn onClick={() => setBags((bb) => ({ ...bb, [b.id]: Math.max(0, (bb[b.id] || 0) - 1) }))} disabled={(bags[b.id] || 0) <= 0}>−</StepBtn>
@@ -932,46 +946,45 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
 
           <div className="va-card">
             <div>
-              <div className="va-card__title">Voyageur principal</div>
-              <div className="va-card__sub">Ces informations figureront sur le billet. Aucune création de compte requise.</div>
+              <div className="va-card__title">{t('Voyageur principal')}</div>
+              <div className="va-card__sub">{t('Ces informations figureront sur le billet. Aucune création de compte requise.')}</div>
             </div>
             <div className="va-form">
               <div className="va-form__row">
                 <div className="va-field">
-                  <label className="va-field__label">Nom <sup>*</sup></label>
+                  <label className="va-field__label">{t('Nom')} <sup>*</sup></label>
                   <input className="va-input" value={form.nom} onChange={setField('nom')} />
                 </div>
                 <div className="va-field">
-                  <label className="va-field__label">Prénom <sup>*</sup></label>
+                  <label className="va-field__label">{t('Prénom')} <sup>*</sup></label>
                   <input className="va-input" value={form.prenom} onChange={setField('prenom')} />
                 </div>
               </div>
               <div className="va-form__row">
                 <div className="va-field">
-                  <label className="va-field__label">Date de naissance <sup>*</sup></label>
+                  <label className="va-field__label">{t('Date de naissance')} <sup>*</sup></label>
                   <div className="va-input-wrap">
                     <span className="va-input-wrap__icon"><ICalendar size={16} /></span>
-                    <input className="va-input va-input--with-icon" value={form.dob} onChange={setField('dob')} placeholder="JJ/MM/AAAA" />
+                    <input className="va-input va-input--with-icon" value={form.dob} onChange={setField('dob')} placeholder={t('JJ/MM/AAAA')} />
                   </div>
                 </div>
                 <div className="va-field">
-                  <label className="va-field__label">Téléphone <small style={{ color: 'var(--va-text-muted)', fontWeight: 400 }}>(optionnel)</small></label>
+                  <label className="va-field__label">{t('Téléphone')} <small style={{ color: 'var(--va-text-muted)', fontWeight: 400 }}>{t('(optionnel)')}</small></label>
                   <input className="va-input" value={form.tel} onChange={setField('tel')} placeholder="06 12 34 56 78" />
                 </div>
               </div>
               <div className="va-form__row va-form__row--full">
                 <div className="va-field">
-                  <label className="va-field__label">E-mail <sup>*</sup></label>
+                  <label className="va-field__label">{t('E-mail')} <sup>*</sup></label>
                   <input className="va-input" type="email" value={form.email} onChange={setField('email')} />
-                  <span className="va-field__hint">Le billet et les notifications de trafic vous seront envoyés à cette adresse.</span>
+                  <span className="va-field__hint">{t('Le billet et les notifications de trafic vous seront envoyés à cette adresse.')}</span>
                 </div>
               </div>
             </div>
             <div className="va-banner">
               <span className="va-banner__icon"><IShield size={16} /></span>
               <span>
-                <strong>Vos données restent privées.</strong> Aucun compte requis, l&rsquo;assistant
-                vérifiera votre identité à chaque accès au billet.
+                <strong>{t('Vos données restent privées.')}</strong> {t('Aucun compte requis, l’assistant vérifiera votre identité à chaque accès au billet.')}
               </span>
             </div>
           </div>
@@ -980,51 +993,51 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
         <div>
           <div className="va-summary">
             <div className="va-summary__head">
-              <div className="va-summary__title">Récapitulatif</div>
+              <div className="va-summary__title">{t('Récapitulatif')}</div>
               <div style={{ fontSize: 13, color: 'var(--va-text-muted)' }}>{r.company} · {r.depart} → {r.arrive}</div>
             </div>
             <div className="va-summary__rows">
               <div className="va-summary__row" style={{ borderBottom: '1px dashed var(--va-border)', paddingBottom: 8, marginBottom: 4 }}>
-                <span>Type de trajet</span>
+                <span>{t('Type de trajet')}</span>
                 <strong>{tripTypeLabel(tripType)}{isRoundTrip(tripType) ? ' (×2)' : ''}</strong>
               </div>
               {isRoundTrip(tripType) && dateRetour && (
                 <div className="va-summary__row va-summary__row--muted">
-                  <span>Retour prévu</span><strong>{dateRetour}</strong>
+                  <span>{t('Retour prévu')}</span><strong>{dateRetour}</strong>
                 </div>
               )}
               <div className="va-summary__row" style={{ borderBottom: '1px dashed var(--va-border)', paddingBottom: 8, marginBottom: 4 }}>
-                <span>Classe</span><strong>{totals.cls.label}</strong>
+                <span>{t('Classe')}</span><strong>{totals.cls.label}</strong>
               </div>
               {pax.adultes > 0 && (
                 <div className="va-summary__row">
-                  <span>Adulte × {pax.adultes}</span>
+                  <span>{t('Adulte')} × {pax.adultes}</span>
                   <strong>{totals.adultPrice * pax.adultes} €</strong>
                 </div>
               )}
               {pax.enfants > 0 && (
                 <div className="va-summary__row">
-                  <span>Enfant × {pax.enfants} <small style={{ color: 'var(--va-text-muted)' }}>(−50 %)</small></span>
+                  <span>{t('Enfant')} × {pax.enfants} <small style={{ color: 'var(--va-text-muted)' }}>{t('(−50 %)')}</small></span>
                   <strong>{totals.childPrice * pax.enfants} €</strong>
                 </div>
               )}
               {pax.bebes > 0 && (
                 <div className="va-summary__row">
-                  <span>Bébé × {pax.bebes} <small style={{ color: 'var(--va-text-muted)' }}>{r.mode === 'plane' ? '(−90 %)' : '(gratuit)'}</small></span>
+                  <span>{t('Bébé')} × {pax.bebes} <small style={{ color: 'var(--va-text-muted)' }}>{r.mode === 'plane' ? t('(−90 %)') : t('(gratuit)')}</small></span>
                   <strong>{totals.babyPrice * pax.bebes} €</strong>
                 </div>
               )}
               {bagOpts.map((b) => (bags[b.id] || 0) > 0 && (
                 <div key={b.id} className="va-summary__row">
-                  <span>{b.label} × {bags[b.id]}</span>
+                  <span>{t(b.label)} × {bags[b.id]}</span>
                   <strong>{b.price * bags[b.id]} €</strong>
                 </div>
               ))}
-              <div className="va-summary__row"><span>Assurance annulation</span><strong>6,90 €</strong></div>
-              <div className="va-summary__row va-summary__row--muted"><span>Frais de service</span><strong>0 €</strong></div>
+              <div className="va-summary__row"><span>{t('Assurance annulation')}</span><strong>6,90 €</strong></div>
+              <div className="va-summary__row va-summary__row--muted"><span>{t('Frais de service')}</span><strong>0 €</strong></div>
             </div>
             <div className="va-summary__total">
-              <small>Total TTC · {paxLabel(pax)}{paxBreakdown(pax) ? ` (${paxBreakdown(pax)})` : ''}</small>
+              <small>{t('Total TTC')} · {paxLabel(pax)}{paxBreakdown(pax) ? ` (${paxBreakdown(pax)})` : ''}</small>
               <strong>{totals.total} €</strong>
             </div>
             {error && (
@@ -1036,10 +1049,10 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
                   className="va-btn va-btn--primary va-btn--lg"
                   style={{ width: '100%' }}
                   onClick={confirmAndPay}>
-                  Se connecter pour réserver <IArrowRight size={16} />
+                  {t('Se connecter pour réserver')} <IArrowRight size={16} />
                 </button>
                 <div style={{ fontSize: 12, color: 'var(--va-text-muted)', textAlign: 'center', marginTop: 8 }}>
-                  Un compte est nécessaire pour finaliser la réservation et retrouver vos billets.
+                  {t('Un compte est nécessaire pour finaliser la réservation et retrouver vos billets.')}
                 </div>
               </>
             ) : (
@@ -1049,16 +1062,16 @@ const BookingPage = ({ go, ctx, auth, onRequestLogin }) => {
                   style={{ width: '100%' }}
                   disabled={busy}
                   onClick={confirmAndPay}>
-                  {busy ? 'Réservation…' : 'Confirmer et payer'} <IArrowRight size={16} />
+                  {busy ? t('Réservation…') : t('Confirmer et payer')} <IArrowRight size={16} />
                 </button>
                 {!requiredOk && (
                   <div style={{ fontSize: 12, color: 'var(--va-text-muted)', textAlign: 'center', marginTop: 8 }}>
-                    Date de naissance et téléphone non remplis par Google — complétez-les ci-dessus.
+                    {t('Date de naissance et téléphone non remplis par Google — complétez-les ci-dessus.')}
                   </div>
                 )}
                 {requiredOk && (
                   <div style={{ fontSize: 11.5, color: 'var(--va-text-muted)', textAlign: 'center', marginTop: 6 }}>
-                    Paiement sécurisé · Cartes &amp; SEPA · Sans engagement
+                    {t('Paiement sécurisé · Cartes & SEPA · Sans engagement')}
                   </div>
                 )}
               </>
@@ -1094,18 +1107,18 @@ const ConfirmPage = ({ go, ctx }) => {
           <ICheck size={28} strokeWidth={2.4} />
         </div>
         <h1 className="va-confirm__title">
-          Bon voyage, {f.prenom}.<br />
-          Votre billet est <em>confirmé.</em>
+          {t('Bon voyage, {prenom}.', { prenom: f.prenom })}<br />
+          {t('Votre billet est')} <em>{t('confirmé.')}</em>
         </h1>
         <div className="va-confirm__sub">
-          Nous venons d&rsquo;envoyer votre billet à <strong style={{ color: 'var(--va-text)' }}>{f.email}</strong>.
-          Vous pourrez le retrouver à tout moment depuis « Mes billets » ou en demandant à l&rsquo;assistant.
+          {t('Nous venons d’envoyer votre billet à')} <strong style={{ color: 'var(--va-text)' }}>{f.email}</strong>.{' '}
+          {t('Vous pourrez le retrouver à tout moment depuis « Mes billets » ou en demandant à l’assistant.')}
         </div>
 
         <div className="va-bigticket">
           <div className="va-bigticket__head">
             <div className="va-bigticket__num">
-              <small>Numéro de billet</small>
+              <small>{t('Numéro de billet')}</small>
               <strong>{num}</strong>
             </div>
             <div className="va-bigticket__brand">
@@ -1118,42 +1131,42 @@ const ConfirmPage = ({ go, ctx }) => {
               <div className="va-detailroute">
                 <div className="va-detailroute__stop">
                   <div className="va-detailroute__time">{r.depart}</div>
-                  <div className="va-detailroute__date">Sam. 13 juin 2026</div>
+                  {r.dateShort && <div className="va-detailroute__date">{r.dateShort}</div>}
                   <div className="va-detailroute__city">{r.from}</div>
                 </div>
                 <div className="va-detailroute__sep">
                   <div>{r.dur}</div>
                   <div className="va-detailroute__sep-line"><StopDots stops={r.stops} /></div>
                   <div style={{ color: r.escales && r.escales.length > 0 ? 'var(--va-accent)' : undefined }}>{r.stops}</div>
-                  {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>via {r.escales.join(' · ')}</div>}
+                  {r.escales && r.escales.length > 0 && <div style={{ fontSize: 10, color: 'var(--va-text-muted)' }}>{t('via')} {r.escales.join(' · ')}</div>}
                 </div>
                 <div className="va-detailroute__stop va-detailroute__stop--right">
                   <div className="va-detailroute__time">{r.arrive}</div>
-                  <div className="va-detailroute__date">Sam. 13 juin 2026</div>
+                  {(r.dateArriveeShort || r.dateShort) && <div className="va-detailroute__date">{r.dateArriveeShort || r.dateShort}</div>}
                   <div className="va-detailroute__city">{r.to}</div>
                 </div>
               </div>
             </div>
             <div className="va-bigticket__qrwrap">
               <div className="va-bigticket__qr"><QRCode seed={num} size={120} /></div>
-              <div className="va-bigticket__qrlabel">À présenter à l&rsquo;embarquement</div>
+              <div className="va-bigticket__qrlabel">{t('À présenter à l’embarquement')}</div>
             </div>
           </div>
           <div className="va-bigticket__foot">
             <div>
-              <span className="va-bigticket__foot__label">Voyageur</span>
+              <span className="va-bigticket__foot__label">{t('Voyageur')}</span>
               <span className="va-bigticket__foot__value">{f.prenom} {f.nom}</span>
             </div>
             <div>
-              <span className="va-bigticket__foot__label">Voiture / Siège</span>
+              <span className="va-bigticket__foot__label">{t('Voiture / Siège')}</span>
               <span className="va-bigticket__foot__value">{r.mode === 'plane' ? '24 A' : 'V.7 · 23 F'}</span>
             </div>
             <div>
-              <span className="va-bigticket__foot__label">Tarif</span>
+              <span className="va-bigticket__foot__label">{t('Tarif')}</span>
               <span className="va-bigticket__foot__value">{totals.cls.label}</span>
             </div>
             <div>
-              <span className="va-bigticket__foot__label">Total payé</span>
+              <span className="va-bigticket__foot__label">{t('Total payé')}</span>
               <span className="va-bigticket__foot__value">{totals.total} €</span>
             </div>
           </div>
@@ -1161,16 +1174,16 @@ const ConfirmPage = ({ go, ctx }) => {
 
         <div className="va-confirm__cta">
           <button className="va-btn va-btn--primary va-btn--lg" onClick={() => go('mes-billets')}>
-            <IFile size={16} /> Voir mes billets
+            <IFile size={16} /> {t('Voir mes billets')}
           </button>
           <button className="va-btn va-btn--secondary va-btn--lg" onClick={() => go('assistant')}>
-            <IMessage size={16} /> Parler à l&rsquo;assistant
+            <IMessage size={16} /> {t('Parler à l’assistant')}
           </button>
         </div>
 
         <div className="va-confirm__meta">
           <ICheckCircle size={14} style={{ color: 'var(--va-success)' }} />
-          E-mail envoyé · paiement débité (CB Visa •• 4218) · billet rétractable jusqu&rsquo;à J–1
+          {t('E-mail envoyé · paiement débité (CB Visa •• 4218) · billet rétractable jusqu’à J–1')}
         </div>
       </div>
     </div>
@@ -1201,7 +1214,7 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
           identity: { nom: id.nom, prenom: id.prenom, date_naissance: id.dob },
         }),
       });
-      if (!res.ok) { setVerifyError('Numéro de billet ou identité incorrects.'); return; }
+      if (!res.ok) { setVerifyError(t('Numéro de billet ou identité incorrects.')); return; }
       const billet = await res.json();
       const t = billet.trajet || {};
       const dep = t.date_depart ? new Date(t.date_depart) : null;
@@ -1222,7 +1235,7 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
         route,
         totals: { total: billet.prix_paye, cls: { label: billet.tarif || 'Standard' } },
       });
-    } catch { setVerifyError('Erreur de connexion au serveur.'); }
+    } catch { setVerifyError(t('Erreur de connexion au serveur.')); }
     finally { setVerifying(false); }
   };
 
@@ -1246,14 +1259,14 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
         <div className="va-pagehead">
           <div className="va-pagehead__top">
             <div className="va-crumb">
-              <a onClick={() => go('home')}>Accueil</a>
+              <a onClick={() => go('home')}>{t('Accueil')}</a>
               <span className="va-crumb__sep">/</span>
-              <span className="va-crumb__current">Mes billets</span>
+              <span className="va-crumb__current">{t('Mes billets')}</span>
             </div>
           </div>
-          <h1 className="va-pagehead__title">Historique de mes billets</h1>
+          <h1 className="va-pagehead__title">{t('Historique de mes billets')}</h1>
           <div className="va-pagehead__sub">
-            Retrouvez ici tous les billets achetés avec ce compte ({auth.user.email}).
+            {t('Retrouvez ici tous les billets achetés avec ce compte ({email}).', { email: auth.user.email })}
           </div>
         </div>
 
@@ -1266,17 +1279,17 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
           }}
         >
           {loadingBillets && (
-            <div style={{ padding: 28, textAlign: 'center', color: 'var(--va-text-muted)' }}>Chargement…</div>
+            <div style={{ padding: 28, textAlign: 'center', color: 'var(--va-text-muted)' }}>{t('Chargement…')}</div>
           )}
           {!loadingBillets && myBillets && myBillets.length === 0 && (
             <div className="va-mestickets__card" style={{ textAlign: 'center' }}>
               <div className="va-mestickets__icon" style={{ margin: '0 auto 12px' }}><IFile size={22} /></div>
-              <div className="va-mestickets__title">Aucun billet pour l’instant</div>
+              <div className="va-mestickets__title">{t('Aucun billet pour l’instant')}</div>
               <div className="va-mestickets__sub" style={{ marginBottom: 18 }}>
-                Vos prochaines réservations apparaîtront ici automatiquement.
+                {t('Vos prochaines réservations apparaîtront ici automatiquement.')}
               </div>
               <button className="va-btn va-btn--primary" onClick={() => go('home')}>
-                Faire une recherche <IArrowRight size={16} />
+                {t('Faire une recherche')} <IArrowRight size={16} />
               </button>
             </div>
           )}
@@ -1312,12 +1325,12 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
                           color: b.statut === 'annule' ? '#c62828' : isFuture ? '#2e7d32' : 'var(--va-text-muted)',
                           border: '1px solid transparent',
                         }}>
-                          {b.statut === 'annule' ? 'Annulé' : isFuture ? 'À venir' : 'Terminé'}
+                          {b.statut === 'annule' ? window.t('Annulé') : isFuture ? window.t('À venir') : window.t('Terminé')}
                         </span>
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--va-text-muted)', marginTop: 4 }}>
                         {t.compagnie || '—'} · {t.classe || 'Standard'}
-                        {dDep && <> · {dDep.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} à {dDep.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</>}
+                        {dDep && <> · {dDep.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })} {window.t('à')} {dDep.toLocaleTimeString(window.VA_I18N.locale(), { hour: '2-digit', minute: '2-digit' })}</>}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--va-text-subtle, var(--va-text-muted))', marginTop: 4, fontFamily: 'JetBrains Mono, ui-monospace, monospace' }}>
                         {b.numero_billet}
@@ -1329,9 +1342,9 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
                         type="button"
                         className="va-btn va-btn--sm va-btn--secondary"
                         style={{ marginTop: 6 }}
-                        onClick={() => go('confirm', { ticketNum: b.numero_billet, form: { nom: b.user.nom, prenom: b.user.prenom, email: b.user.email }, route: { mode: t.type === 'avion' ? 'plane' : t.type === 'bus' ? 'bus' : t.type === 'bateau' ? 'ship' : 'train', company: t.compagnie, class: t.classe, depart: dDep ? dDep.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '', arrive: '', from: t.depart, to: t.arrivee, dur: '', stops: '', price: Math.round(b.prix_paye) }, totals: { total: Math.round(b.prix_paye), cls: { label: t.classe || 'Standard' } } })}
+                        onClick={() => go('confirm', { ticketNum: b.numero_billet, form: { nom: b.user.nom, prenom: b.user.prenom, email: b.user.email }, route: { mode: t.type === 'avion' ? 'plane' : t.type === 'bus' ? 'bus' : t.type === 'bateau' ? 'ship' : 'train', company: t.compagnie, class: t.classe, depart: dDep ? dDep.toLocaleTimeString(window.VA_I18N.locale(), { hour: '2-digit', minute: '2-digit' }) : '', arrive: '', from: t.depart, to: t.arrivee, dur: '', stops: '', price: Math.round(b.prix_paye) }, totals: { total: Math.round(b.prix_paye), cls: { label: t.classe || 'Standard' } } })}
                       >
-                        Voir le billet
+                        {window.t('Voir le billet')}
                       </button>
                     </div>
                   </div>
@@ -1339,7 +1352,7 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
               })}
               <div style={{ textAlign: 'center', marginTop: 6 }}>
                 <button className="va-btn va-btn--ghost" onClick={() => go('home')}>
-                  <IArrowLeft size={14} /> Retour à l’accueil
+                  <IArrowLeft size={14} /> {t('Retour à l’accueil')}
                 </button>
               </div>
             </div>
@@ -1354,13 +1367,13 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
       <div className="va-pagehead">
         <div className="va-pagehead__top">
           <div className="va-crumb">
-            <a onClick={() => go('home')}>Accueil</a>
+            <a onClick={() => go('home')}>{t('Accueil')}</a>
             <span className="va-crumb__sep">/</span>
-            <span className="va-crumb__current">Mes billets</span>
+            <span className="va-crumb__current">{t('Mes billets')}</span>
           </div>
         </div>
-        <h1 className="va-pagehead__title">Accéder à un billet</h1>
-        <div className="va-pagehead__sub">Aucune création de compte requise — votre numéro et une vérification d&rsquo;identité suffisent.</div>
+        <h1 className="va-pagehead__title">{t('Accéder à un billet')}</h1>
+        <div className="va-pagehead__sub">{t('Aucune création de compte requise — votre numéro et une vérification d’identité suffisent.')}</div>
       </div>
 
       <div className="va-mestickets">
@@ -1368,22 +1381,22 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
           <div className="va-mestickets__head">
             <div className="va-mestickets__icon">{step === 'enter' ? <IFile size={22} /> : <IShield size={22} />}</div>
             <div className="va-mestickets__title">
-              {step === 'enter' ? 'Votre numéro de billet' :
-               step === 'verify' ? 'Vérifions votre identité' : 'Identité vérifiée'}
+              {step === 'enter' ? t('Votre numéro de billet') :
+               step === 'verify' ? t('Vérifions votre identité') : t('Identité vérifiée')}
             </div>
             <div className="va-mestickets__sub">
               {step === 'enter'
-                ? 'Le numéro figure dans l\u2019e-mail de confirmation, format TRV-2026-XXXXXX.'
+                ? t('Le numéro figure dans l’e-mail de confirmation, format TRV-2026-XXXXXX.')
                 : step === 'verify'
-                ? 'Confirmez les informations du voyageur principal pour accéder au billet.'
-                : 'Votre billet est en cours de chargement…'}
+                ? t('Confirmez les informations du voyageur principal pour accéder au billet.')
+                : t('Votre billet est en cours de chargement…')}
             </div>
           </div>
 
           {step === 'enter' && (
             <div className="va-form">
               <div className="va-field">
-                <label className="va-field__label">Numéro de billet</label>
+                <label className="va-field__label">{t('Numéro de billet')}</label>
                 <div className="va-input-wrap">
                   <span className="va-input-wrap__icon"><IFile size={16} /></span>
                   <input
@@ -1394,14 +1407,14 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
                     style={{ fontFamily: 'JetBrains Mono, ui-monospace, monospace', letterSpacing: '0.04em' }}
                   />
                 </div>
-                <span className="va-field__hint">Vous avez perdu votre numéro&nbsp;? <a style={{ color: 'var(--va-accent)', fontWeight: 500, cursor: 'pointer' }} onClick={() => go('assistant')}>Demandez à l&rsquo;assistant.</a></span>
+                <span className="va-field__hint">{t('Vous avez perdu votre numéro ?')} <a style={{ color: 'var(--va-accent)', fontWeight: 500, cursor: 'pointer' }} onClick={() => go('assistant')}>{t('Demandez à l’assistant.')}</a></span>
               </div>
               <button
                 className="va-btn va-btn--primary va-btn--lg"
                 style={{ width: '100%' }}
                 disabled={!validNum}
                 onClick={() => setStep('verify')}>
-                Continuer <IArrowRight size={16} />
+                {t('Continuer')} <IArrowRight size={16} />
               </button>
             </div>
           )}
@@ -1410,19 +1423,19 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
             <div className="va-form">
               <div className="va-form__row">
                 <div className="va-field">
-                  <label className="va-field__label">Nom</label>
-                  <input className="va-input" value={id.nom} onChange={setField('nom')} placeholder="Moreau" />
+                  <label className="va-field__label">{t('Nom')}</label>
+                  <input className="va-input" value={id.nom} onChange={setField('nom')} placeholder={t('Moreau')} />
                 </div>
                 <div className="va-field">
-                  <label className="va-field__label">Prénom</label>
-                  <input className="va-input" value={id.prenom} onChange={setField('prenom')} placeholder="Camille" />
+                  <label className="va-field__label">{t('Prénom')}</label>
+                  <input className="va-input" value={id.prenom} onChange={setField('prenom')} placeholder={t('Camille')} />
                 </div>
               </div>
               <div className="va-field">
-                <label className="va-field__label">Date de naissance</label>
+                <label className="va-field__label">{t('Date de naissance')}</label>
                 <div className="va-input-wrap">
                   <span className="va-input-wrap__icon"><ICalendar size={16} /></span>
-                  <input className="va-input va-input--with-icon" value={id.dob} onChange={setField('dob')} placeholder="JJ/MM/AAAA" />
+                  <input className="va-input va-input--with-icon" value={id.dob} onChange={setField('dob')} placeholder={t('JJ/MM/AAAA')} />
                 </div>
               </div>
               {verifyError && (
@@ -1432,21 +1445,21 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
               )}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="va-btn va-btn--ghost" style={{ flex: '0 0 auto' }} onClick={() => setStep('enter')}>
-                  <IArrowLeft size={16} /> Retour
+                  <IArrowLeft size={16} /> {t('Retour')}
                 </button>
                 <button
                   className="va-btn va-btn--primary"
                   style={{ flex: 1 }}
                   disabled={!(id.nom && id.prenom && id.dob) || verifying}
                   onClick={handleVerify}>
-                  {verifying ? 'Vérification…' : <><IShield size={16} /> Accéder à mon billet</>}
+                  {verifying ? t('Vérification…') : <><IShield size={16} /> {t('Accéder à mon billet')}</>}
                 </button>
               </div>
             </div>
           )}
 
           <div className="va-mestickets__alt">
-            Pas encore de billet&nbsp;? <a onClick={() => go('home')}>Faire une recherche</a>
+            {t('Pas encore de billet ?')} <a onClick={() => go('home')}>{t('Faire une recherche')}</a>
           </div>
         </div>
       </div>
@@ -1454,6 +1467,38 @@ const MesBilletsPage = ({ go, ctx, auth }) => {
   );
 };
 
+// Version standalone de enrich() (cf. ResultsPage) pour réutilisation hors du composant
+// (ex. cartes de résultats dans le chatbot). Même mapping trajet API → route object.
+const enrichTrajet = (t) => {
+  const modeKey = MODE_API_TO_KEY[t.type] || 'train';
+  const depart = new Date(t.date_depart);
+  const arrive = new Date(t.date_arrivee);
+  const hh = (d) => `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const mins = Math.round((arrive - depart) / 60000);
+  const dur = `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2,'0')}`;
+  const fmtLong = (d) => isNaN(d) ? '' : d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const fmtShort = (d) => isNaN(d) ? '' : d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  const tags = [];
+  if (t.has_wifi) tags.push({ label: 'Wi-Fi', good: false });
+  if (t.has_prise) tags.push({ label: 'Prise', good: false });
+  if (t.type === 'train' || t.type === 'bus') tags.push({ label: 'Émission –93 %', good: true });
+  if (t.prix < 35) tags.push({ label: 'Petit prix', good: true });
+  if (t.retard_minutes > 0) tags.push({ label: 'Retard {min} min', vars: { min: t.retard_minutes }, good: false });
+  return {
+    id: t.id, _api: t,
+    company: t.compagnie, class: t.classe || 'Standard',
+    depart: hh(depart), arrive: hh(arrive),
+    dateLong: fmtLong(depart), dateShort: fmtShort(depart), dateArriveeShort: fmtShort(arrive),
+    from: t.depart, to: t.arrivee,
+    dur, stops: t.stops || 'direct',
+    escales: t.escales || [],
+    dureeEscaleMin: t.duree_escale_min || 0,
+    price: Math.round(t.prix), mode: modeKey,
+    tags,
+  };
+};
+
 Object.assign(window, {
   HomePage, ResultsPage, BookingPage, ConfirmPage, MesBilletsPage,
+  enrichTrajet,
 });

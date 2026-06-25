@@ -39,3 +39,23 @@ def verify_billet_identity(
         return None
 
     return billet
+
+
+def verify_billet_dob(
+    db: Session,
+    numero_billet: str,
+    date_naissance: date,
+) -> Billet | None:
+    """Vérifie un billet par numéro + date de naissance uniquement.
+
+    Le nom/prénom figurent déjà sur le billet : on ne demande plus que le seul
+    secret réellement utile (la date de naissance). Retourne le Billet si le
+    numéro existe ET que la date de naissance du voyageur correspond, sinon None.
+    """
+    billet = db.query(Billet).filter(Billet.numero_billet == numero_billet).first()
+    if billet is None:
+        return None
+    user: User = billet.user
+    if user is None or user.date_naissance != date_naissance:
+        return None
+    return billet

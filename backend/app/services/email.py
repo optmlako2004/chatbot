@@ -6,6 +6,7 @@ from typing import Optional
 
 from app.config import settings
 from app.services.billet_pdf import build_billet_pdf
+from app.services.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -18,16 +19,17 @@ def _build_confirmation_html(
     chatbot_url: str,
     montant: str | None = None,
     classe: str | None = None,
+    lang: str = "fr",
 ) -> str:
     montant_row = f"""
-    <tr><td style="padding:6px 0;color:#666;font-size:13px;">Montant payé</td>
+    <tr><td style="padding:6px 0;color:#666;font-size:13px;">{t("Montant payé", lang)}</td>
         <td style="padding:6px 0;color:#1a1a1a;font-size:14px;font-weight:600;text-align:right;">{montant}</td></tr>""" if montant else ""
     classe_row = f"""
-    <tr><td style="padding:6px 0;color:#666;font-size:13px;">Classe</td>
+    <tr><td style="padding:6px 0;color:#666;font-size:13px;">{t("Classe", lang)}</td>
         <td style="padding:6px 0;color:#1a1a1a;font-size:14px;font-weight:600;text-align:right;">{classe}</td></tr>""" if classe else ""
 
     return f"""<!doctype html>
-<html lang="fr">
+<html lang="{lang}">
 <head><meta charset="utf-8"><title>Votre billet</title></head>
 <body style="margin:0;padding:0;background:#f5f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1a1a;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f5f4;padding:32px 16px;">
@@ -38,17 +40,16 @@ def _build_confirmation_html(
         <!-- Bandeau orange -->
         <tr><td style="background:#D97757;padding:32px 32px 28px;color:#ffffff;">
           <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;">Voyage Assistant</div>
-          <div style="margin-top:4px;font-size:14px;opacity:0.95;">Confirmation de réservation</div>
+          <div style="margin-top:4px;font-size:14px;opacity:0.95;">{t("Confirmation de réservation", lang)}</div>
         </td></tr>
 
         <!-- Corps -->
         <tr><td style="padding:32px;">
           <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#1a1a1a;">
-            Bon voyage, {to_name}.
+            {t("Bon voyage, {to_name}.", lang, to_name=to_name)}
           </h1>
           <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.55;">
-            Votre billet est confirmé. Vous le trouverez en pièce jointe de cet email,
-            prêt à présenter à l'embarquement.
+            {t("Votre billet est confirmé. Vous le trouverez en pièce jointe de cet email, prêt à présenter à l'embarquement.", lang)}
           </p>
 
           <!-- Carte récap -->
@@ -56,7 +57,7 @@ def _build_confirmation_html(
                  style="background:#f9f7f5;border:1px solid #e7e5e4;border-radius:12px;margin-bottom:24px;">
             <tr><td style="padding:20px 22px;">
               <div style="color:#666;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">
-                Numéro de billet
+                {t("Numéro de billet", lang)}
               </div>
               <div style="color:#D97757;font-size:22px;font-weight:700;letter-spacing:0.02em;font-family:'SF Mono',Menlo,monospace;">
                 {numero_billet}
@@ -76,31 +77,29 @@ def _build_confirmation_html(
                  style="background:#fff;border:1px solid #e7e5e4;border-left:3px solid #D97757;border-radius:8px;margin-bottom:24px;">
             <tr><td style="padding:18px 20px;">
               <div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:6px;">
-                Besoin d'aide pour ce voyage&nbsp;?
+                {t("Besoin d'aide pour ce voyage ?", lang)}
               </div>
               <div style="font-size:13.5px;color:#555;line-height:1.55;margin-bottom:12px;">
-                Notre assistant Voyage répond 24/7. Communiquez-lui le numéro de billet
-                <strong style="color:#1a1a1a;">{numero_billet}</strong> pour modifier votre réservation,
-                signaler un retard ou ouvrir une réclamation.
+                {t("Notre assistant Voyage répond 24/7. Communiquez-lui le numéro de billet {numero} pour modifier votre réservation, signaler un retard ou ouvrir une réclamation.", lang, numero=f'<strong style="color:#1a1a1a;">{numero_billet}</strong>')}
               </div>
               <a href="{chatbot_url}"
                  style="display:inline-block;padding:10px 18px;background:#D97757;color:#ffffff;
                         text-decoration:none;border-radius:8px;font-size:14px;font-weight:600;">
-                Parler à l'assistant
+                {t("Parler à l'assistant", lang)}
               </a>
             </td></tr>
           </table>
 
           <p style="margin:0;color:#888;font-size:12.5px;line-height:1.55;">
-            Document personnel et non cessible · Conservez-le jusqu'à la fin de votre voyage.
+            {t("Document personnel et non cessible · Conservez-le jusqu'à la fin de votre voyage.", lang)}
           </p>
         </td></tr>
 
         <!-- Footer -->
         <tr><td style="background:#fafaf9;padding:20px 32px;border-top:1px solid #e7e5e4;
                        color:#888;font-size:12px;text-align:center;">
-          Voyage Assistant · Avion · Train · Bateau · Bus longue distance<br/>
-          <span style="color:#aaa;">Vous recevez cet email suite à une réservation effectuée sur notre plateforme.</span>
+          {t("Voyage Assistant · Avion · Train · Bateau · Bus longue distance", lang)}<br/>
+          <span style="color:#aaa;">{t("Vous recevez cet email suite à une réservation effectuée sur notre plateforme.", lang)}</span>
         </td></tr>
       </table>
     </td></tr>
@@ -119,9 +118,10 @@ def send_confirmation_email(
     pdf_bytes: Optional[bytes] = None,
     montant: Optional[str] = None,
     classe: Optional[str] = None,
+    lang: str = "fr",
 ) -> bool:
     """Envoie l'email de confirmation via Brevo, avec PDF du billet en pièce jointe."""
-    subject = f"Votre billet Voyage Assistant — {numero_billet}"
+    subject = t("Votre billet Voyage Assistant — {numero}", lang, numero=numero_billet)
     html = _build_confirmation_html(
         to_name=to_name,
         numero_billet=numero_billet,
@@ -129,16 +129,22 @@ def send_confirmation_email(
         chatbot_url=chatbot_url,
         montant=montant,
         classe=classe,
+        lang=lang,
     )
-    body_text = (
-        f"Bonjour {to_name},\n\n"
-        f"Votre billet est confirmé.\n\n"
-        f"Numéro de billet : {numero_billet}\n"
-        f"Trajet : {trajet_resume}\n\n"
-        f"Le billet en PDF est joint à ce message.\n\n"
-        f"Pour toute question, communiquez le numéro de billet à notre assistant 24/7 :\n"
-        f"{chatbot_url}\n\n"
-        f"Bon voyage,\nVoyage Assistant"
+    body_text = t(
+        "Bonjour {to_name},\n\n"
+        "Votre billet est confirmé.\n\n"
+        "Numéro de billet : {numero}\n"
+        "Trajet : {trajet}\n\n"
+        "Le billet en PDF est joint à ce message.\n\n"
+        "Pour toute question, communiquez le numéro de billet à notre assistant 24/7 :\n"
+        "{url}\n\n"
+        "Bon voyage,\nVoyage Assistant",
+        lang,
+        to_name=to_name,
+        numero=numero_billet,
+        trajet=trajet_resume,
+        url=chatbot_url,
     )
 
     if not settings.brevo_api_key or not settings.brevo_sender_email:
@@ -185,12 +191,17 @@ def send_reclamation_email(
     to_name: str,
     numero_suivi: str,
     type_reclamation: str,
+    lang: str = "fr",
 ) -> bool:
-    subject = f"Votre réclamation {numero_suivi} a bien été enregistrée"
-    body_text = (
-        f"Bonjour {to_name},\n\n"
-        f"Votre réclamation de type '{type_reclamation}' a été enregistrée sous le numéro "
-        f"{numero_suivi}.\n\nNotre équipe vous répondra sous 72h.\n\nVoyage Assistant"
+    subject = t("Votre réclamation {numero} a bien été enregistrée", lang, numero=numero_suivi)
+    body_text = t(
+        "Bonjour {to_name},\n\n"
+        "Votre réclamation de type '{type}' a été enregistrée sous le numéro "
+        "{numero}.\n\nNotre équipe vous répondra sous 72h.\n\nVoyage Assistant",
+        lang,
+        to_name=to_name,
+        type=type_reclamation,
+        numero=numero_suivi,
     )
 
     if not settings.brevo_api_key:

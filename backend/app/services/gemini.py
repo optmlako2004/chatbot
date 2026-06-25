@@ -99,15 +99,28 @@ def is_available() -> bool:
     return _get_model() is not None
 
 
-def ask(prompt: str, history: list[dict] | None = None, web_context: str = "") -> Optional[str]:
-    """Envoie une question à Gemini. Si web_context fourni, l'injecte avant la question."""
+# Instruction de langue ajoutée au prompt pour forcer la langue de réponse.
+_LANG_INSTRUCTION = {
+    "en": "Respond in English.",
+    "es": "Responde en español.",
+    "fr": "Réponds en français.",
+}
+
+
+def ask(prompt: str, history: list[dict] | None = None, web_context: str = "", lang: str = "fr") -> Optional[str]:
+    """Envoie une question à Gemini. Si web_context fourni, l'injecte avant la question.
+
+    `lang` ('fr'|'en'|'es') ajoute une instruction pour forcer la langue de réponse.
+    """
     model = _get_model()
     if model is None:
         return None
     try:
+        lang_directive = _LANG_INSTRUCTION.get(lang, _LANG_INSTRUCTION["fr"])
         full_prompt = prompt
         if web_context:
             full_prompt = f"{web_context}\n\n---\nQuestion utilisateur : {prompt}"
+        full_prompt = f"{full_prompt}\n\n[LANGUE DE RÉPONSE] {lang_directive}"
         if history:
             chat = model.start_chat(history=[
                 {"role": "user" if h["role"] == "user" else "model", "parts": [h["content"]]}

@@ -296,3 +296,73 @@
   border: none; padding: 8px 14px; border-radius: 6px;
   cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 500;
 }
+
+/* ============================================================
+   RESPONSIVE — ajouté pour rendre toute l'app utilisable sur
+   tablette et mobile (une seule media-query existait avant).
+   Fichier chargé en dernier → ces règles priment à spécificité égale.
+   ============================================================ */
+
+/* ── Tablette / petit laptop ──────────────────────────────── */
+@media (max-width: 860px) {
+  /* Navigation : moins de padding, liens resserrés, retour à la ligne autorisé */
+  .va-nav { padding: 14px 18px; flex-wrap: wrap; gap: 10px; }
+  .va-nav__links { gap: 18px; font-size: 13px; }
+
+  /* En-têtes de page */
+  .va-pagehead { padding: 16px 18px 14px; }
+  .va-stepper { display: none; } /* le fil d'étapes déborde sur mobile */
+
+  /* Barre de recherche : champs empilés verticalement */
+  .va-search { flex-direction: column; gap: 6px; box-shadow: var(--va-shadow); }
+  .va-search__field + .va-search__field { border-left: none; border-top: 1px solid var(--va-border); }
+  .va-search__field + .va-search__field:hover { border-top-color: transparent; }
+  .va-search__swap { transform: rotate(90deg); margin: 2px auto; }
+  .va-search__cta { width: 100%; height: 48px; margin: 6px 0 0; }
+
+  /* Résultats : filtres au-dessus de la liste, plein écran */
+  .va-results { grid-template-columns: 1fr; gap: 18px; padding: 18px 16px 60px; }
+  .va-filters { position: static; flex-direction: row; flex-wrap: wrap; gap: 12px; }
+  .va-filter { flex: 1; min-width: 160px; }
+
+  /* Réservation : formulaire sous le récap, plein écran */
+  .va-booking { grid-template-columns: 1fr; gap: 20px; padding: 18px 16px 60px; }
+  .va-booking__hero { height: 200px; }
+  .va-booking__heroCap h2 { font-size: 22px; }
+  .va-inforow { grid-template-columns: 1fr 1fr; gap: 14px; }
+  .va-bigticket__body { grid-template-columns: 1fr; }
+  .va-bigticket__foot { grid-template-columns: 1fr 1fr; }
+
+  /* Quick-replies du chat : une colonne */
+  .va-quickgrid { grid-template-columns: 1fr; }
+
+  /* Chat : la sidebar devient un tiroir superposé (sinon écrase le chat) */
+  .va-chat--with-sidebar { grid-template-columns: 1fr; }
+  .va-chatside {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: min(82vw, 300px); z-index: 80;
+    box-shadow: 8px 0 28px rgba(0,0,0,0.22);
+  }
+  .va-chatside-scrim {
+    display: block; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.42); z-index: 79;
+  }
+  .va-chat__head { padding: 12px 16px; }
+  .va-chat__status { display: none; } /* « En ligne · répond en 2 s » : pas la place */
+  .va-chat__scroll { padding: 20px 16px 16px; }
+  .va-chat__inputzone { padding-left: 12px; padding-right: 12px; }
+}
+
+/* Le scrim n'existe que sur mobile (cf. ci-dessus) */
+.va-chatside-scrim { display: none; }
+
+/* ── Téléphone ────────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .va-nav__links { gap: 14px; }
+  .va-form__row { grid-template-columns: 1fr; }
+  .va-inforow { grid-template-columns: 1fr; }
+  .va-bigticket__foot { grid-template-columns: 1fr; }
+  .va-msg--user .va-msg__body { max-width: 90%; }
+  .va-booking__hero { height: 170px; }
+  .va-detailroute { gap: 12px; }
+}

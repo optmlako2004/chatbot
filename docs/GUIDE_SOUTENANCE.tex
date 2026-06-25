@@ -3,587 +3,202 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
-\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage[a4paper,margin=2.4cm]{geometry}
 \usepackage{lmodern}
-\usepackage{xcolor}
-\usepackage{graphicx}
 \usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{titlesec}
-\usepackage{fancyhdr}
-\usepackage[most]{tcolorbox}
 \usepackage[hidelinks]{hyperref}
 
-% Couleurs (orange de l'application)
-\definecolor{accent}{HTML}{D97757}
-\definecolor{dark}{HTML}{243857}
-\definecolor{light}{HTML}{F5F3EE}
-\definecolor{vert}{HTML}{2E7D54}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
 
-\hypersetup{colorlinks=true, linkcolor=dark, urlcolor=accent}
-
-% Titres
-\titleformat{\section}{\Large\bfseries\color{dark}}{\thesection.}{0.6em}{}
-\titleformat{\subsection}{\large\bfseries\color{accent}}{\thesubsection}{0.5em}{}
-\titleformat{\subsubsection}{\normalsize\bfseries\color{dark}}{}{0em}{}
-
-% En-tete / pied de page
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\color{dark}Guide de soutenance}
-\fancyhead[R]{\small\color{dark}Voyage Assistant}
-\fancyfoot[C]{\small\color{dark}\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-
-\setlist{itemsep=2pt, topsep=3pt}
-
-% Boites
-\newtcolorbox{dire}{colback=accent!8, colframe=accent, boxrule=0.8pt,
-  arc=2pt, left=8pt, right=8pt, top=6pt, bottom=6pt,
-  title=\textbf{Ce que tu dis (a l'oral)}, fonttitle=\color{white},
-  coltitle=white, colbacktitle=accent}
-
-\newtcolorbox{comprendre}{colback=dark!5, colframe=dark, boxrule=0.8pt,
-  arc=2pt, left=8pt, right=8pt, top=6pt, bottom=6pt,
-  title=\textbf{Ce que tu dois VRAIMENT comprendre}, fonttitle=\color{white},
-  coltitle=white, colbacktitle=dark}
-
-\newtcolorbox{question}{colback=vert!6, colframe=vert, boxrule=0.8pt,
-  arc=2pt, left=8pt, right=8pt, top=6pt, bottom=6pt,
-  title=\textbf{Questions probables du jury + reponses}, fonttitle=\color{white},
-  coltitle=white, colbacktitle=vert}
-
-\newcommand{\qr}[2]{\par\smallskip\noindent\textbf{\color{vert}Q. #1}\par\noindent #2}
+\title{\textbf{Guide de soutenance --- Voyage Assistant}\\[0.2cm]
+\large SAE2 BUT3}
+\author{}
+\date{}
 
 \begin{document}
 
-% ---------------- PAGE DE GARDE ----------------
-\begin{titlepage}
-\centering
-\vspace*{1.5cm}
-{\color{accent}\rule{\textwidth}{2pt}}\\[0.8cm]
-{\Huge\bfseries\color{dark} Guide de soutenance}\\[0.4cm]
-{\LARGE\color{accent} Voyage Assistant}\\[0.3cm]
-{\large\color{dark} Chatbot IA, RAG et reservation multi-transport}\\[0.5cm]
-{\color{accent}\rule{\textwidth}{2pt}}\\[1.2cm]
+\maketitle
+\vspace{-1cm}
 
-{\large\itshape Document interne d'aide a la presentation orale.}\\[0.2cm]
-{\large\itshape Pour que chacun maitrise sa partie et reponde sans hesiter au jury.}\\[1.5cm]
-
-\begin{tabular}{ll}
-\textbf{SAE2} & BUT3 Informatique \\[4pt]
-\textbf{Equipe} & Ako Christian, Carl Similien, \\
- & Noe Cervera, Dhanoush Kessavane \\[4pt]
-\textbf{Encadrant} & Bilal Faye (LIPN, CNRS UMR 7030) \\[4pt]
-\textbf{Application} & \url{https://optimalako-voyage-assistant.hf.space} \\[4pt]
-\textbf{Code} & \url{https://github.com/optmlako2004/chatbot} \\
-\end{tabular}
-
-\vfill
-{\small\color{dark} A lire et a repeter a voix haute avant le jour J.}
-\end{titlepage}
+\begin{center}
+\small Encadrement : Bilal Faye (LIPN, CNRS UMR 7030) --- Promotion 2025--2026\\
+Démo : \url{https://optimalako-voyage-assistant.hf.space}
+\end{center}
 
 \tableofcontents
 \newpage
 
-% ================================================================
-\section{Comment reussir la soutenance (a lire par tous)}
+\section{Principe de la soutenance}
 
-\subsection{Le principe de base}
-Une diapositive ne se lit pas, elle s'explique. Les slides contiennent tres
-peu de texte (regle dite \emph{5/5/5} : environ 5 mots par ligne, 5 lignes max).
-Tout le contenu riche, c'est \textbf{vous} qui le dites. Ce guide contient,
-pour chaque slide, le texte a dire et ce qu'il faut comprendre derriere.
+Durée visée : \textbf{15 à 20 minutes} de présentation + questions. L'objectif est que
+le \textbf{jury, sans formation en IA}, comprenne ce que fait l'application et pourquoi
+nos choix techniques sont pertinents. Trois règles :
 
-\subsection{Les regles d'or}
-\begin{itemize}
-  \item \textbf{Ne pas lire les slides.} Le jury sait lire. Vous, vous racontez.
-  \item \textbf{Une idee principale par slide}, developpee a l'oral en 2 a 3 phrases.
-  \item \textbf{Regarder le jury}, pas l'ecran. Se tenir droit, parler lentement.
-  \item \textbf{Connaitre le temps imparti} et repeter au moins une fois en entier, chrono en main.
-  \item \textbf{Anticiper les questions} : elles sont listees dans ce guide, partie par partie.
-  \item \textbf{Assumer les limites.} Dire "nous ne l'avons pas fait, voici pourquoi et comment on le ferait" est bien meilleur que bluffer.
-  \item \textbf{Faire des transitions} : "je laisse la parole a Carl qui va parler du back-end".
+\begin{itemize}[nosep]
+  \item \textbf{Montrer avant d'expliquer} : on commence par une démonstration concrète.
+  \item \textbf{Vulgariser} : chaque terme technique (RAG, embeddings, NER) est expliqué
+        par une image simple avant le mot savant.
+  \item \textbf{Équilibre} : chaque membre présente \textbf{environ 3 diapositives}, soit
+        un temps de parole comparable.
 \end{itemize}
 
-\subsection{Qui presente quoi (10 diapositives)}
+\section{Répartition (équilibrée) et déroulé}
+
 \begin{center}
 \renewcommand{\arraystretch}{1.3}
-\begin{tabular}{c p{8.2cm} l}
+\begin{tabular}{>{\bfseries}l p{6.5cm} c}
 \toprule
-\textbf{\#} & \textbf{Diapositive} & \textbf{Presentateur} \\
+Membre & Rôle dans la soutenance & Diapos \\
 \midrule
-1 & Page de titre (presentation de l'equipe) & Christian \\
-2 & Deroule et repartition & Christian \\
-3 & Le probleme et la demonstration & Christian \\
-4 & Architecture d'ensemble & Christian \\
-5 & Le chatbot et le RAG & Christian \\
-6 & Securite de l'IA et mise en ligne & Christian \\
-7 & Back-end, actions reelles et donnees & Carl \\
-8 & Les modeles de langage (NLP) & Noe \\
-9 & Interface, design et experience & Dhanoush \\
-10 & Bilan, perspectives et echanges & Christian \\
+Dhanoush Kessavane & Introduction + \textbf{vidéo de démonstration} + front-end & 1 à 3 \\
+Carl Similien & Architecture, API et base de données & 4 à 6 \\
+Noé Cervera & Le « cerveau » : LLM, RAG, embeddings, NER & 7 à 9 \\
+Ako Christian & Actions réelles, sources de vérité, déploiement & 10 à 12 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent\emph{Note : Christian ouvre et ferme car sa partie (IA, RAG, deploiement)
-structure tout le projet. Mais chacun doit comprendre l'ensemble : le jury peut
-poser une question a n'importe qui.}
+Dhanoush ouvre avec une \textbf{vidéo de test} de l'application (réalisée avant la
+soutenance), puis présente brièvement le front-end ; on enchaîne ensuite sur les autres
+membres. Chacun conclut sa partie en annonçant le suivant.
 
-% ================================================================
-\section{Le projet en bref (tout le monde doit savoir)}
+\section{Plan diapositive par diapositive}
 
-\begin{comprendre}
-\textbf{En une phrase :} Voyage Assistant est une plateforme web de reservation
-de voyages (avion, train, bateau, bus) dotee d'un chatbot intelligent qui ne se
-contente pas de repondre, mais qui \textbf{agit reellement} : il consulte la base,
-modifie un billet, cree une reclamation, envoie un e-mail.
+Pour chaque diapositive : le \textbf{titre}, le \textbf{contenu} à afficher (3--5 puces
+maximum, peu de texte), et l'\textbf{orateur}.
 
-\medskip
-\textbf{Les briques :}
-\begin{itemize}
-  \item \textbf{Front-end} : React (interface web).
-  \item \textbf{Back-end} : FastAPI (Python), une API de ~29 routes, 8 tables.
-  \item \textbf{Base de donnees} : PostgreSQL (en production), 182 000 liaisons reelles.
-  \item \textbf{IA} : Google Gemini 2.5 Flash (le modele qui redige les reponses).
-  \item \textbf{RAG} : recherche de documents (embeddings gte-small + FAISS + reranker).
-  \item \textbf{NER} : CamemBERT pour extraire nom/prenom/date/numero de billet.
-  \item \textbf{APIs temps reel} : meteo (Open-Meteo) et taux de change (Frankfurter).
-  \item \textbf{Deploiement} : Docker sur Hugging Face Spaces + base Neon, gratuit.
-\end{itemize}
-\end{comprendre}
+\subsection*{Partie Dhanoush --- Introduction \& démo}
 
-% ================================================================
-\section{Partie de Christian : IA, RAG, securite, deploiement}
-\emph{Slides 1, 2, 3, 4, 5, 6 et 10.}
+\textbf{Diapo 1 --- Page de titre.}
+Titre « Voyage Assistant », sous-titre « Assistant IA pour le transport », les 4 noms,
+l'encadrant, l'URL de la démo. \emph{Dit :} qui nous sommes, le sujet en une phrase.
 
-\subsection{Slides 1 et 2 : ouverture et plan}
-\begin{dire}
-"Bonjour, nous sommes l'equipe qui a developpe Voyage Assistant, un assistant
-de voyage intelligent. Je suis Christian, et avec moi Carl, Noe et Dhanoush.
-Je vais vous presenter le probleme et l'architecture, puis chacun detaillera sa
-partie : Carl le back-end, Noe les modeles de langage, Dhanoush l'interface."
-\end{dire}
+\textbf{Diapo 2 --- Démonstration (vidéo).}
+La vidéo de test : une recherche de trajet, une réservation, puis une question à
+l'assistant (ex. « combien de temps dure mon vol ? ») et une modification de billet.
+\emph{Dit :} « Voici l'application en conditions réelles » ; commenter la vidéo en direct.
 
-\subsection{Slide 3 : le probleme et la demonstration}
-\begin{dire}
-"Aujourd'hui, pour reserver un voyage, on jongle entre plusieurs sites, et les
-informations (prix, horaires, retards) sont dispersees. Notre idee : un assistant
-unique pour l'avion, le train, le bateau et le bus, qui non seulement informe
-mais qui agit : il peut modifier un billet, l'annuler, ouvrir une reclamation.
-L'application est en ligne, je vais vous la montrer : voici une recherche reelle
-parmi 182 000 liaisons, et une conversation avec l'assistant."
-\end{dire}
-\begin{comprendre}
-La force du projet, c'est que le chatbot \textbf{n'est pas une demo qui fait
-semblant}. Quand il dit "votre billet est modifie", la ligne change vraiment en
-base, un nouveau PDF est genere et un e-mail part. C'est l'argument numero un a
-mettre en avant.
-\end{comprendre}
-\begin{question}
-\qr{Quelle est la difference avec un ChatGPT classique ?}{Notre assistant est
-\emph{connecte a nos donnees et a nos actions}. ChatGPT seul ne connait pas vos
-billets et ne peut rien modifier. Nous, on combine un modele de langage avec
-notre base, nos regles metier et une verification d'identite.}
-\qr{D'ou viennent les 182 000 liaisons ?}{D'un jeu de donnees de liaisons de
-transport charge dans la table \texttt{routes} (3 005 villes de depart, 468
-compagnies). Les prix et le nombre de places sont calcules dynamiquement.}
-\end{question}
+\textbf{Diapo 3 --- L'expérience utilisateur (front-end).}
+React, design clair/sombre, \textbf{responsive} (mobile/tablette/ordinateur),
+\textbf{multilingue} (FR/EN/ES), \textbf{voix} (dictée + lecture). \emph{Dit :} comment
+l'interface a été pensée pour être simple et accessible.
 
-\subsection{Slide 4 : architecture d'ensemble}
-\begin{dire}
-"L'architecture suit trois couches. Le front-end en React, qui parle a une API
-FastAPI en Python. Cette API gere la base PostgreSQL et orchestre la couche
-intelligence : le modele Gemini, notre RAG, la reconnaissance d'entites, et des
-APIs temps reel pour la meteo et le change. Tout est regroupe dans un seul
-service deploye sur Hugging Face : le front et l'API partagent la meme adresse,
-ce qui simplifie la securite."
-\end{dire}
-\begin{comprendre}
-\textbf{Pourquoi un seul service ?} Parce que si le front et l'API sont sur la
-meme origine (meme URL), il n'y a pas de probleme de CORS (le navigateur n'autorise
-pas par defaut un site a appeler une API d'un autre domaine). C'est plus simple
-et plus sur. FastAPI sert l'API \emph{et} les fichiers du front.
+\subsection*{Partie Carl --- Architecture \& données}
 
-\medskip
-\textbf{Le flux d'un message :} l'utilisateur ecrit -> le front envoie a l'API ->
-la fonction \texttt{process\_message} decide quoi faire (repondre, chercher,
-agir) -> elle assemble un contexte (base, documents, web) -> Gemini redige ->
-la reponse revient au front.
-\end{comprendre}
-\begin{question}
-\qr{Pourquoi FastAPI et pas Flask/Django ?}{FastAPI est moderne, rapide,
-asynchrone, avec validation automatique des donnees (Pydantic) et documentation
-auto-generee. Parfait pour une API qui sert de l'IA.}
-\qr{Pourquoi PostgreSQL et pas seulement SQLite ?}{En developpement on a utilise
-SQLite (un simple fichier). Pour la mise en ligne, PostgreSQL (chez Neon) est plus
-robuste, accessible a distance et adapte a la production.}
-\end{question}
+\textbf{Diapo 4 --- Architecture full-stack.}
+Schéma : navigateur (React) $\rightarrow$ API (FastAPI) $\rightarrow$ base de données ;
+couche IA côté serveur. \emph{Dit :} le rôle de chaque brique, le découpage front/back.
 
-\subsection{Slide 5 : le chatbot et le RAG (coeur technique)}
-\begin{dire}
-"Le chatbot fonctionne en deux temps : il comprend, puis il agit. Il detecte
-l'intention de l'utilisateur (une simple question, un retard, une modification,
-une reclamation). Pour les actions sensibles, il lance un parcours guide et
-verifie l'identite avant tout. Pour les questions ouvertes, on utilise un RAG.
-Le RAG, Retrieval-Augmented Generation, c'est faire chercher a l'IA les bons
-documents AVANT de repondre, pour qu'elle s'appuie sur des sources reelles plutot
-que sur sa memoire, ce qui evite les reponses inventees. Notre RAG a deux etapes :
-d'abord une recherche large et rapide, ensuite un reclassement fin des meilleurs
-passages."
-\end{dire}
-\begin{comprendre}
-\textbf{RAG, mot a mot :}
-\begin{itemize}
-  \item \textbf{Retrieval} (recuperation) : on cherche dans une base de documents les passages qui ressemblent le plus a la question.
-  \item \textbf{Augmented} (augmente) : on \emph{ajoute} ces passages au prompt envoye a l'IA.
-  \item \textbf{Generation} : l'IA redige la reponse en s'appuyant dessus.
-\end{itemize}
-\textbf{Pourquoi 2 etapes ?}
-\begin{itemize}
-  \item \emph{Etape 1, le bi-encodeur} (\texttt{gte-small}) : transforme chaque texte
-  en vecteur de nombres, puis on cherche les 10 plus proches dans l'index FAISS.
-  C'est tres rapide mais grossier (il compare des resumes).
-  \item \emph{Etape 2, le cross-encodeur} (\texttt{ms-marco}) : il relit la question
-  ET chaque passage ensemble, et donne un score de pertinence precis. On garde les
-  3 meilleurs. C'est plus lent, donc on ne le fait que sur 10 candidats, pas sur tout.
-\end{itemize}
-\textbf{Les sources du RAG :} les conditions generales de vente (annulation,
-bagages, remboursement) et les billets du client (indexes a leur creation, et
-filtres par utilisateur pour que personne ne voie les billets d'un autre).
-\end{comprendre}
-\begin{question}
-\qr{Qu'est-ce qu'un embedding ?}{C'est la transformation d'un texte en une liste
-de nombres (un vecteur) qui represente son sens. Deux phrases proches par le sens
-ont des vecteurs proches. Cela permet de "mesurer" la similarite.}
-\qr{Qu'est-ce que FAISS ?}{Une bibliotheque de Facebook qui stocke des milliers de
-vecteurs et retrouve tres vite les plus proches d'une question. C'est notre moteur
-de recherche semantique.}
-\qr{Difference bi-encodeur / cross-encodeur ?}{Le bi-encodeur encode la question et
-les documents \emph{separement} (rapide, on peut pre-calculer). Le cross-encodeur
-les regarde \emph{ensemble} (plus precis mais plus lourd). On combine les deux :
-rapidite puis precision.}
-\qr{Et si le RAG ne trouve rien de pertinent ?}{Gemini repond quand meme avec ses
-connaissances generales et, si besoin, une recherche web, mais sans inventer
-d'information sur un billet precis.}
-\qr{Pourquoi gte-small et pas un modele plus gros ?}{Compromis vitesse/qualite :
-gte-small (384 dimensions) est multilingue, leger, rapide a charger sur un
-hebergement gratuit. Un modele plus gros serait plus precis mais trop lourd.}
-\end{question}
+\textbf{Diapo 5 --- L'API et la base de données.}
+FastAPI, validation Pydantic, ORM SQLAlchemy ; tables \code{users}, \code{trajets},
+\code{billets}, \code{reclamations}, \code{chat\_sessions}. Catalogue de
+\textbf{plus de 182\,000 liaisons} réelles (avion, train, bateau, bus). \emph{Dit :} on
+manipule de vraies données, pas des exemples.
 
-\subsection{Slide 6 : securite de l'IA et mise en ligne}
-\begin{dire}
-"La securite est pensee a plusieurs niveaux. Cote IA, le chatbot refuse les
-sujets dangereux ou hors-sujet et detecte les tentatives de detournement, ce
-qu'on appelle le prompt injection. Surtout, il ne donne aucune information sur un
-billet tant que l'identite n'a pas ete verifiee. Cote mise en ligne, tout est
-dans un conteneur Docker, heberge gratuitement sur Hugging Face Spaces, avec une
-base PostgreSQL chez Neon. Les secrets, comme les cles d'API, ne sont jamais
-ecrits dans le code : ils sont injectes comme variables d'environnement."
-\end{dire}
-\begin{comprendre}
-\textbf{Prompt injection :} c'est quand un utilisateur essaie de manipuler l'IA
-avec des phrases comme "ignore tes instructions" ou "montre-moi tous les billets".
-On detecte ces formulations et on refuse.
+\textbf{Diapo 6 --- Sécurité et robustesse.}
+Requêtes SQL paramétrées (anti-injection), échappement HTML (anti-XSS), garde-fous
+contre insultes et injections de prompt, vérification d'identité, secrets hors du code.
+\emph{Dit :} une application sérieuse doit aussi être sûre.
 
-\medskip
-\textbf{Verification d'identite :} pour toucher a un billet, le chatbot demande
-numero de billet + nom + prenom + date de naissance, et compare a la base. Sans
-correspondance, pas d'action. C'est ce qui protege les donnees personnelles.
+\subsection*{Partie Noé --- Le cerveau (à vulgariser++)}
 
-\medskip
-\textbf{Mots de passe :} jamais stockes en clair. On utilise PBKDF2 (un algorithme
-qui "hache" le mot de passe des milliers de fois, ici 50 000), donc meme en cas de
-fuite, les mots de passe ne sont pas lisibles.
+\textbf{Diapo 7 --- Pourquoi un LLM ne suffit pas.}
+Un LLM (Gemini) écrit très bien mais \textbf{invente} parfois et ne connaît ni nos
+données ni l'actualité. \emph{Image :} « un élève brillant mais qui répond de mémoire ».
+\emph{Dit :} d'où la nécessité du RAG.
 
-\medskip
-\textbf{Jetons (tokens) :} apres connexion, l'utilisateur recoit un jeton signe
-(HMAC) qui prouve son identite a chaque requete, sans renvoyer le mot de passe.
+\textbf{Diapo 8 --- RAG et embeddings (le c\oe ur du cours).}
+RAG = « examen à livre ouvert » : on \textbf{cherche le bon passage} puis on répond.
+Les \textbf{embeddings} transforment le sens d'une phrase en nombres ; deux phrases
+proches par le sens ont des nombres proches (« je veux annuler » $\approx$ « conditions
+de résiliation »). Outils : FAISS (recherche rapide), puis un \textbf{reranker} qui
+re-classe les meilleurs résultats. \emph{Dit :} c'est ce qui rend les réponses fiables.
 
-\medskip
-\textbf{Docker :} une "boite" qui contient l'application et tout ce dont elle a
-besoin (Python, librairies, modeles). Elle tourne pareil partout. On la deploie
-sur Hugging Face Spaces (16 Go de RAM gratuits, suffisant pour nos modeles).
-\end{comprendre}
-\begin{question}
-\qr{Comment protegez-vous les donnees personnelles ?}{Verification d'identite
-avant toute action, mots de passe haches (PBKDF2), jetons signes, et le RAG filtre
-les billets par utilisateur pour qu'on ne voie jamais ceux d'un autre.}
-\qr{Quelles limites de securite assumez-vous ?}{La connexion Google n'est pas
-encore entierement verifiee cote serveur (on l'indique honnetement) et il manque
-une limitation de debit (rate limiting) contre le spam. Ce sont nos axes
-d'amelioration prioritaires.}
-\qr{Pourquoi Hugging Face et pas un VPS ?}{Gratuit, 16 Go de RAM (nos modeles
-d'IA tiennent), deploiement automatique a chaque mise a jour du code. Un VPS
-aurait ete payant et plus lourd a maintenir pour un projet etudiant.}
-\end{question}
+\textbf{Diapo 9 --- Comprendre l'utilisateur (NER) et qualité.}
+Le \textbf{NER} repère automatiquement le nom/prénom dans une phrase libre. On évoque
+l'évaluation : on a testé les réponses (factuelles, anti-hallucination, robustesse aux
+abus). \emph{Dit :} l'IA est mesurée, pas juste « branchée ».
 
-\subsection{Slide 10 : bilan, perspectives et echanges}
-\begin{dire}
-"Pour conclure, le cahier des charges est couvert : recherche, reservation,
-assistant IA, RAG et reconnaissance d'entites. Nous assumons des limites : la
-connexion Google a durcir et des tests automatises a ajouter. Nos perspectives :
-ces tests, une supervision en production et le support de plus de langues. Merci
-de votre attention, nous sommes prets a repondre a vos questions."
-\end{dire}
-\begin{question}
-\qr{Qu'avez-vous trouve le plus difficile ?}{Faire tenir des modeles d'IA (RAG,
-NER) sur un hebergement gratuit, et orchestrer proprement le chatbot pour qu'il
-agisse sur la base sans jamais halluciner d'information sur un billet.}
-\qr{Si vous aviez plus de temps ?}{Tests automatises (pytest), supervision/alertes,
-durcissement de l'authentification Google, et une vraie base vectorielle dediee.}
-\end{question}
+\subsection*{Partie Christian --- Actions réelles \& mise en ligne}
 
-% ================================================================
-\section{Partie de Carl : back-end, API et base de donnees}
-\emph{Slide 7.}
+\textbf{Diapo 10 --- L'assistant agit vraiment.}
+Modifier / annuler / réclamer passent par une \textbf{machine à états} déterministe
+(intention $\rightarrow$ vérification d'identité $\rightarrow$ action en base
+$\rightarrow$ e-mail + billet PDF). \emph{Dit :} le LLM \textbf{rédige}, le code
+\textbf{exécute} --- aucune action inventée.
 
-\subsection{Slide 7 : back-end, actions reelles et donnees}
-\begin{dire}
-"Cote back-end, j'ai construit l'API avec FastAPI : une trentaine de routes qui
-couvrent les comptes, la recherche de trajets, les billets, le chat et les
-reclamations, le tout sur 8 tables PostgreSQL. La securite des comptes repose sur
-des mots de passe chiffres et des jetons signes. Le point fort, ce sont les
-actions reelles : quand on cree un billet, l'API genere automatiquement un PDF et
-envoie un e-mail ; une modification ou une annulation est enregistree en base ;
-une reclamation recoit un numero de suivi. Enfin, les donnees sont realistes :
-182 000 liaisons, et des prix et des places qui varient selon la saison,
-l'anticipation et le jour."
-\end{dire}
-\begin{comprendre}
-\textbf{Une API REST}, c'est un ensemble d'adresses (routes) que le front appelle :
-par exemple \texttt{POST /billets} pour creer un billet, \texttt{GET
-/trajets/search} pour chercher. Chaque route recoit des donnees, fait une
-operation, renvoie une reponse en JSON.
+\textbf{Diapo 11 --- Les 3 sources de vérité + déploiement.}
+RAG (règles), base de données (billet personnel, calcul de durée), APIs temps réel
+(météo, heure, change). Déploiement réel sur \textbf{Hugging Face Spaces} + base
+\textbf{Neon}. \emph{Dit :} l'application est en ligne et fonctionne.
 
-\medskip
-\textbf{Les 8 tables :} \texttt{routes} (les liaisons), \texttt{users}
-(utilisateurs), \texttt{trajets} (un trajet concret a une date), \texttt{billets},
-\texttt{reclamations}, \texttt{chat\_sessions} et \texttt{chat\_messages} (les
-conversations), \texttt{admins}. Elles sont reliees par des cles etrangeres
-(un billet appartient a un utilisateur et a un trajet).
+\textbf{Diapo 12 --- Bilan et perspectives.}
+Toutes les exigences du sujet sont couvertes (tableau) ; bonus : multilingue, voix,
+recherche web. Perspectives : plus de documents RAG, notifications, intégration continue.
+\emph{Dit :} on conclut et on ouvre les questions.
 
-\medskip
-\textbf{ORM SQLAlchemy :} on ne ecrit pas du SQL a la main partout ; on manipule
-des objets Python (un \texttt{Billet}) que SQLAlchemy traduit en SQL. Plus sur,
-moins d'erreurs.
+\section{Antisèche : expliquer simplement (jury non-IA)}
 
-\medskip
-\textbf{Prix dynamique :} le prix de base est multiplie par des coefficients :
-saison (juillet plus cher), anticipation (reserver tot coute moins cher, au dernier
-moment plus cher), jour de la semaine. Les places se "remplissent" avec le temps
-de facon deterministe (calculee, reproductible).
-
-\medskip
-\textbf{Generation PDF + e-mail :} a la creation d'un billet, le service genere un
-PDF (avec ReportLab) et l'envoie par e-mail (via Brevo). Ce sont de vraies actions.
-\end{comprendre}
-\begin{question}
-\qr{Comment gerez-vous la recherche sur 182 000 lignes sans lenteur ?}{Avec des
-index sur les colonnes de depart, d'arrivee et de type. Sans index, une recherche
-pourrait prendre plusieurs secondes ; avec, c'est quasi instantane.}
-\qr{Qu'est-ce qu'une cle etrangere ?}{Une colonne qui pointe vers la ligne d'une
-autre table. Par exemple \texttt{billets.user\_id} pointe vers \texttt{users.id} :
-cela garantit qu'un billet appartient bien a un utilisateur existant.}
-\qr{Comment migrez-vous de SQLite vers PostgreSQL ?}{Un script
-(\texttt{migrate\_to\_postgres.py}) qui cree le schema sur PostgreSQL, vide la
-cible, puis copie les donnees table par table dans le bon ordre (a cause des cles
-etrangeres).}
-\qr{Que se passe-t-il si l'envoi d'e-mail echoue ?}{Le billet est quand meme cree
-en base ; l'e-mail est un complement, pas un bloquant. On pourrait ajouter une
-file d'attente pour reessayer.}
-\qr{Pourquoi des jetons signes plutot que JWT standard ?}{On a fait un format
-simple \texttt{id:expiration:signature} avec HMAC. C'est suffisant pour signer et
-verifier, sans dependance externe. JWT serait une evolution possible.}
-\end{question}
-
-% ================================================================
-\section{Partie de Noe : modeles de langage (NLP)}
-\emph{Slide 8.}
-
-\subsection{Slide 8 : les modeles de langage}
-\begin{dire}
-"Je me suis occupe des modeles de traitement du langage. Le premier role, c'est
-l'embedding : transformer le sens d'une phrase en une liste de nombres. On utilise
-le modele gte-small, qui produit des vecteurs de 384 dimensions et qui est
-multilingue ; cela permet de mesurer a quel point deux phrases sont proches.
-Ensuite, un cross-encoder reclasse les passages vraiment pertinents pour la
-question. Enfin, un modele de reconnaissance d'entites, CamemBERT, extrait
-automatiquement le nom, le prenom, la date et le numero de billet dans une phrase.
-Resultat : un dialogue plus precis et plus rapide, car l'utilisateur peut tout
-donner en une seule phrase."
-\end{dire}
-\begin{comprendre}
-\textbf{Embedding (vectorisation) :} un modele transforme "Combien coute un billet
-pour Rome ?" en un vecteur de 384 nombres. Une phrase au sens proche aura un
-vecteur proche. On mesure la proximite par la \emph{similarite cosinus} (l'angle
-entre deux vecteurs).
-
-\medskip
-\textbf{gte-small} : c'est notre \emph{bi-encodeur}. "Small" car leger ; "384"
-c'est la taille du vecteur. Multilingue : marche en francais comme en anglais.
-
-\medskip
-\textbf{Cross-encoder (ms-marco)} : contrairement au bi-encodeur qui encode
-separement, lui prend la paire (question, passage) et donne un score de pertinence.
-Plus precis, donc on l'utilise pour reclasser les 10 candidats et garder les 3
-meilleurs.
-
-\medskip
-\textbf{NER (Named Entity Recognition)} : reconnaissance d'entites nommees. Le
-modele \texttt{CamemBERT} (un BERT entraine sur du francais) lit une phrase et
-etiquette les mots : "Jean" = prenom, "Dupont" = nom, etc. On y ajoute des
-expressions regulieres (regex) pour les numeros de billet et les dates.
-Avantage : si l'utilisateur ecrit tout d'un coup, on evite de lui poser 4 questions.
-
-\medskip
-\textbf{Chargement paresseux (lazy loading)} : les modeles sont charges en memoire
-seulement au premier usage, pour ne pas ralentir le demarrage.
-\end{comprendre}
-\begin{question}
-\qr{C'est quoi BERT / CamemBERT ?}{BERT est un modele de langage de Google qui
-"comprend" le contexte des mots. CamemBERT en est la version entrainee sur du
-francais. On l'utilise pour la reconnaissance d'entites.}
-\qr{Pourquoi un modele de NER plutot que des regex partout ?}{Les regex marchent
-pour des formats fixes (un numero de billet, une date). Mais un nom/prenom est
-variable : le NER le reconnait dans n'importe quelle formulation.}
-\qr{Comment evaluez-vous la qualite du RAG ?}{On verifie que les passages remontes
-correspondent bien a la question (pertinence), et le reranker ameliore nettement le
-top 3 par rapport au bi-encodeur seul. On a teste sur des questions reelles
-(annulation, bagages).}
-\qr{Qu'est-ce que la similarite cosinus ?}{Une mesure entre -1 et 1 de l'angle
-entre deux vecteurs. Proche de 1 = sens tres proche. C'est ce qui classe les
-documents par ressemblance avec la question.}
-\qr{Ces modeles tournent-ils en local ou via une API ?}{En local, dans le
-conteneur (gte-small, ms-marco, CamemBERT sont telecharges). Seul Gemini, le
-modele qui redige, passe par une API.}
-\end{question}
-
-% ================================================================
-\section{Partie de Dhanoush : front-end, design et experience}
-\emph{Slide 9.}
-
-\subsection{Slide 9 : interface, design et experience}
-\begin{dire}
-"Cote interface, j'ai developpe le front-end en React, sous la forme d'une
-application en page unique : on navigue entre la recherche, la reservation, le
-profil et le chatbot sans recharger la page. L'interface communique directement
-avec l'API. Pour le design, on a choisi une identite visuelle orange, sobre, sans
-surcharge, avec des reponses de chat ou les sources sont cliquables. Et tout est
-pense pour fonctionner aussi bien sur mobile que sur ordinateur."
-\end{dire}
-\begin{comprendre}
-\textbf{React} : une bibliotheque pour construire des interfaces a base de
-\emph{composants} (des briques reutilisables : un bouton, une carte de trajet, la
-fenetre de chat). Quand une donnee change, React met a jour seulement ce qui doit
-changer a l'ecran.
-
-\medskip
-\textbf{SPA (Single Page Application)} : une seule page HTML ; la navigation se
-fait en JavaScript, sans rechargement. C'est fluide, comme une application.
-
-\medskip
-\textbf{Communication avec l'API} : le front envoie des requetes (fetch) a l'API
-et affiche les reponses (trajets, messages du chat). Le jeton de connexion est
-garde dans le navigateur (localStorage) et envoye a chaque requete.
-
-\medskip
-\textbf{Rendu du chat} : les reponses sont en Markdown ; les liens sources
-deviennent cliquables. Le composant affiche aussi quel outil a ete utilise
-(base, documentation, web) et des boutons de reponse rapide.
-
-\medskip
-\textbf{Responsive} : la mise en page s'adapte a la taille de l'ecran (CSS),
-donc lisible sur telephone comme sur grand ecran.
-\end{comprendre}
-\begin{question}
-\qr{Pourquoi React ?}{C'est le standard pour des interfaces interactives, avec une
-logique en composants reutilisables et une mise a jour efficace de l'affichage.}
-\qr{Comment le front sait-il qui est connecte ?}{Apres connexion, on stocke un
-jeton dans le navigateur et on l'envoie dans l'en-tete de chaque requete. L'API
-verifie ce jeton.}
-\qr{Comment gerez-vous l'affichage des reponses du chatbot ?}{Le composant chat
-recoit le texte, l'affiche en Markdown (liens cliquables), montre les outils
-utilises et propose des reponses rapides pour guider l'utilisateur.}
-\qr{Le site est-il accessible sur mobile ?}{Oui, la mise en page est responsive :
-elle s'adapte automatiquement a la largeur de l'ecran.}
-\end{question}
-
-% ================================================================
-\section{Glossaire complet (a connaitre par tous)}
-
-\begin{description}[leftmargin=0pt, style=nextline]
-\item[API] Interface qui permet a deux programmes de se parler. Notre back-end expose une API que le front appelle.
-\item[FastAPI] Framework Python pour creer des API rapides et modernes.
-\item[REST] Style d'API basee sur des adresses (routes) et les verbes HTTP (GET, POST...).
-\item[Back-end / Front-end] L'arriere-plan (serveur, base, logique) / l'interface visible par l'utilisateur.
-\item[Base de donnees] Lieu de stockage organise des donnees. Ici PostgreSQL.
-\item[PostgreSQL / SQLite] Deux systemes de base de donnees ; SQLite = un fichier (dev), PostgreSQL = serveur robuste (prod).
-\item[ORM (SQLAlchemy)] Outil qui traduit des objets Python en requetes SQL.
-\item[Cle etrangere] Colonne qui relie une table a une autre.
-\item[Index] Structure qui accelere la recherche dans une table.
-\item[LLM] Large Language Model, grand modele de langage (ici Gemini) qui redige du texte.
-\item[Gemini 2.5 Flash] Le modele d'IA de Google qui genere nos reponses.
-\item[RAG] Retrieval-Augmented Generation : chercher des documents avant de generer la reponse.
-\item[Embedding / Vectorisation] Transformer un texte en vecteur de nombres representant son sens.
-\item[Vecteur / Dimension] Liste de nombres ; 384 dimensions = 384 nombres par texte.
-\item[Similarite cosinus] Mesure de proximite de sens entre deux vecteurs.
-\item[FAISS] Bibliotheque qui retrouve tres vite les vecteurs les plus proches.
-\item[Bi-encodeur (gte-small)] Encode question et documents separement : rapide.
-\item[Cross-encoder (ms-marco)] Compare question et passage ensemble : precis. Sert au reclassement (reranking).
-\item[Reranking] Reclasser les resultats pour remonter les plus pertinents.
-\item[Chunk] Morceau de document. On decoupe les textes pour les indexer.
-\item[NER] Named Entity Recognition : reperer nom, date, lieu... dans un texte.
-\item[BERT / CamemBERT] Modeles de comprehension du langage ; CamemBERT = version francaise.
-\item[Regex] Expression reguliere : motif pour reconnaitre un format (date, numero de billet).
-\item[Prompt] Le texte d'instruction envoye au modele d'IA.
-\item[Prompt injection] Tentative de manipuler l'IA pour contourner ses regles.
-\item[Hallucination] Quand une IA invente une information fausse. Le RAG aide a l'eviter.
-\item[Token / Jeton] Apres connexion, preuve d'identite envoyee a chaque requete.
-\item[PBKDF2 / Hachage] Transformation irreversible d'un mot de passe pour le stocker en securite.
-\item[HMAC] Signature cryptographique qui garantit qu'un jeton n'a pas ete falsifie.
-\item[OAuth / Google Sign-In] Connexion via un compte Google.
-\item[CORS] Regle de securite du navigateur sur les appels entre domaines differents.
-\item[Docker / Conteneur] "Boite" qui embarque l'app et ses dependances pour tourner partout pareil.
-\item[Hugging Face Spaces] Plateforme d'hebergement gratuit (16 Go RAM) ou tourne notre conteneur.
-\item[Neon] Hebergeur gratuit de base PostgreSQL.
-\item[Variable d'environnement] Reglage (cle secrete...) injecte sans l'ecrire dans le code.
-\item[React] Bibliotheque JavaScript pour construire l'interface en composants.
-\item[SPA] Single Page Application : navigation sans rechargement de page.
-\item[Markdown] Format de texte simple (liens, listes) utilise dans les reponses du chat.
-\item[Responsive] Interface qui s'adapte a la taille de l'ecran.
-\item[Open-Meteo / Frankfurter] APIs gratuites : meteo/heure locale et taux de change.
-\end{description}
-
-% ================================================================
-\section{Questions transversales pieges (pour tous)}
-\begin{question}
-\qr{Quelle est la part de chacun dans le projet ?}{Christian : IA conversationnelle,
-RAG, securite, deploiement. Carl : back-end, API, base de donnees. Noe : modeles
-NLP (embeddings, reranker, NER) et evaluation. Dhanoush : front-end, design,
-experience utilisateur. Chacun maitrise sa partie et comprend l'ensemble.}
-\qr{Le chatbot peut-il se tromper ?}{Oui, comme toute IA. C'est pourquoi on encadre
-les actions sensibles par des regles strictes (verification d'identite) et on
-ancre les reponses sur des sources reelles via le RAG.}
-\qr{Qu'est-ce qui est "intelligent" exactement ?}{La combinaison : comprehension du
-langage (Gemini, NER), recherche de la bonne information (RAG), et capacite a agir
-sur la base. Ce n'est pas qu'un repondeur, c'est un assistant qui execute.}
-\qr{Est-ce reellement en production ?}{Oui : application en ligne sur Hugging Face,
-base PostgreSQL chez Neon, code sur GitHub. On peut faire la demo en direct.}
-\qr{Combien ca coute ?}{Zero euro : hebergement, base et modeles locaux sont sur des
-offres gratuites. Seul Gemini consomme un quota gratuit d'API.}
-\qr{Quelles sont vos limites et comment les corriger ?}{Authentification Google a
-verifier cote serveur, manque de tests automatises et de limitation de debit. Plan :
-ajouter pytest, durcir l'OAuth, ajouter un rate limiting et de la supervision.}
-\end{question}
-
-\vfill
 \begin{center}
-{\color{accent}\rule{0.5\textwidth}{1pt}}\\[4pt]
-{\small\itshape Repetez votre partie a voix haute. Relisez le glossaire la veille.
-Le jour J : respirez, regardez le jury, et racontez votre travail avec fierte.}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{>{\bfseries}p{3cm} p{11cm}}
+\toprule
+Terme & Phrase à dire \\
+\midrule
+LLM & « Une IA qui écrit du texte, comme un correspondant très cultivé, mais qui peut se
+tromper s'il répond de mémoire. » \\
+RAG & « On lui fait passer un examen à livre ouvert : on lui met le bon document sous les
+yeux avant qu'il réponde. » \\
+Embeddings & « On transforme le sens des phrases en nombres, pour que l'ordinateur
+retrouve les idées proches même sans les mêmes mots. » \\
+FAISS & « Un moteur qui retrouve très vite les passages les plus proches. » \\
+Reranker & « Un second lecteur, plus lent mais plus fin, qui re-classe les meilleurs
+résultats. » \\
+NER & « Une brique qui repère automatiquement le nom et le prénom dans une phrase. » \\
+Machine à états & « Un parcours guidé et sûr : l'IA ne décide pas toute seule d'annuler
+un billet, c'est notre programme qui le fait, étape par étape. » \\
+\bottomrule
+\end{tabular}
 \end{center}
+
+\section{Questions probables du jury et réponses}
+
+\begin{itemize}[leftmargin=1.2em]
+  \item \textbf{« Comment évitez-vous que l'IA invente ? »} --- On sépare la rédaction
+        (le LLM) de l'exécution (notre code) ; et pour les questions, on lui fournit la
+        bonne source (RAG, base, API) au lieu de le laisser deviner.
+  \item \textbf{« Le RAG, c'est imposé par le cours, qu'avez-vous fait exactement ? »} ---
+        Une chaîne vectorielle complète : découpage en \emph{chunks}, embeddings
+        \code{gte-small} en local, index FAISS, puis reranking par cross-encoder.
+  \item \textbf{« Vos données sont-elles réelles ? »} --- Oui : plus de 182\,000 liaisons
+        (avion, train, bateau, bus) ; les billets, comptes et conversations sont stockés
+        en base PostgreSQL.
+  \item \textbf{« Y a-t-il des données pour le bus et le bateau ? »} --- Oui, tous les
+        modes sont présents (l'avion et le train sont les plus fournis ; le bus et le
+        bateau ont des catalogues plus petits mais réels et réservables).
+  \item \textbf{« Est-ce vraiment en ligne ? »} --- Oui, sur Hugging Face Spaces avec une
+        base Neon ; on peut le montrer en direct (prévoir le réveil du Space, $\sim$30~s).
+  \item \textbf{« Pourquoi pas un hébergeur classique ? »} --- Le RAG charge deux modèles
+        en mémoire ($\sim$1~Go) ; les offres gratuites à 512~Mo plantent, d'où Hugging
+        Face (16~Go).
+  \item \textbf{« Comment gérez-vous plusieurs langues ? »} --- L'interface est traduite
+        (FR/EN/ES) et l'assistant reçoit une consigne de langue pour répondre dans la
+        langue choisie.
+  \item \textbf{« Sécurité ? »} --- SQL paramétré, échappement HTML, garde-fous contre
+        injections de prompt et abus, vérification d'identité, secrets hors du code.
+\end{itemize}
+
+\section{Conseils pratiques}
+\begin{itemize}[nosep]
+  \item Réveiller le Space \textbf{avant} de passer (premier accès $\sim$30~s).
+  \item Avoir la \textbf{vidéo de démo en local} (secours si le réseau flanche).
+  \item Peu de texte par diapo : on \textbf{parle}, la diapo \textbf{appuie}.
+  \item Préparer un billet de test (numéro + identité) pour la démo de modification.
+  \item Chronométrer : $\sim$3--4 min par personne.
+\end{itemize}
 
 \end{document}

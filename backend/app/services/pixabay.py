@@ -130,7 +130,9 @@ _FR_TO_EN: dict[str, str] = {
     "athènes": "athens", "varsovie": "warsaw", "bucarest": "bucharest",
     "moscou": "moscow", "francfort": "frankfurt", "hambourg": "hamburg",
     "cologne": "cologne", "düsseldorf": "dusseldorf", "bâle": "basel",
-    "séville": "seville", "valence": "valencia", "venise": "venice",
+    "séville": "seville", "venise": "venice",
+    # NB : « Valence » n'est PAS traduit en « Valencia » — dans ce catalogue c'est
+    # la ville française (Drôme). Pour l'Espagne, utiliser explicitement « Valencia ».
     "naples": "naples", "florence": "florence", "bologne": "bologna",
     "thessalonique": "thessaloniki", "héraklion": "heraklion",
     "corfou": "corfu", "santorin": "santorini", "rhodes": "rhodes",
@@ -224,39 +226,64 @@ async def _pixabay_query(client: httpx.AsyncClient, q: str) -> str | None:
     return None
 
 
-async def _wikipedia_image(client: httpx.AsyncClient, city_name: str) -> str | None:
-    """Récupère la photo principale Wikipedia pour une ville (FR puis EN)."""
-    title = city_name.title()
-    for lang in ("fr", "en"):
-        try:
-            r = await client.get(
-                f"https://{lang}.wikipedia.org/w/api.php",
-                params={
-                    "action": "query",
-                    "titles": title,
-                    "prop": "pageimages",
-                    "format": "json",
-                    "pithumbsize": 640,
-                    "redirects": 1,
-                },
-                timeout=4.0,
-            )
-            if r.status_code == 429:
-                logger.debug("Wikipedia %s rate-limited pour '%s'", lang, title)
-                continue
-            r.raise_for_status()
-            pages = r.json().get("query", {}).get("pages", {})
-            for page in pages.values():
-                thumb = page.get("thumbnail", {}).get("source", "")
-                if thumb and "upload.wikimedia.org" in thumb:
-                    # Rejeter les SVG (drapeaux, logos, blasons)
-                    if ".svg" in thumb.lower():
-                        continue
-                    thumb = re.sub(r'/\d+px-', '/640px-', thumb)
-                    return thumb
-        except Exception as e:
-            logger.debug("Wikipedia %s erreur pour '%s': %s", lang, title, e)
+async def _wikipedia_query_title(client: httpx.AsyncClient, lang: str, title: str) -> str | None:
+    """Une requête pageimages Wikipedia pour un titre précis."""
+    try:
+        r = await client.get(
+            f"https://{lang}.wikipedia.org/w/api.php",
+            params={
+                "action": "query",
+                "titles": title,
+                "prop": "pageimages",
+                "format": "json",
+                "pithumbsize": 1280,
+                "redirects": 1,
+            },
+            timeout=4.0,
+        )
+        if r.status_code == 429:
+            logger.debug("Wikipedia %s rate-limited pour '%s'", lang, title)
+            return None
+        r.raise_for_status()
+        pages = r.json().get("query", {}).get("pages", {})
+        for page in pages.values():
+            thumb = page.get("thumbnail", {}).get("source", "")
+            if thumb and "upload.wikimedia.org" in thumb:
+                # Rejeter les SVG (drapeaux, logos, blasons, cartes de position)
+                if ".svg" in thumb.lower():
+                    continue
+                return re.sub(r'/\d+px-', '/1280px-', thumb)
+    except Exception as e:
+        logger.debug("Wikipedia %s erreur pour '%s': %s", lang, title, e)
     return None
+
+
+async def _wikipedia_image(client: httpx.AsyncClient, city_name: str) -> str | None:
+    """Récupère la photo principale Wikipedia pour une ville (FR puis EN).
+
+    Beaucoup de villes françaises ont un titre ambigu (« Valence », « Vienne »,
+    « Tours »…) qui pointe vers une page d'homonymie sans photo. On réessaie donc
+    avec des variantes désambiguïsées (« X (Drôme) », « X (France) », « X (ville) »)."""
+    title = city_name.title()
+    variants_fr = [title]
+    suffix = _WIKI_DISAMBIG.get(city_name.lower().strip())
+    if suffix:
+        variants_fr.insert(0, f"{title} ({suffix})")
+    variants_fr += [f"{title} (France)", f"{title} (ville)"]
+    for t in variants_fr:
+        url = await _wikipedia_query_title(client, "fr", t)
+        if url:
+            return url
+    # Repli anglais (villes hors France)
+    return await _wikipedia_query_title(client, "en", title)
+
+
+# Villes françaises au titre Wikipedia ambigu → suffixe de désambiguïsation
+_WIKI_DISAMBIG: dict[str, str] = {
+    "valence": "Drôme", "vienne": "Isère", "tours": "Indre-et-Loire",
+    "laval": "Mayenne", "vannes": "Morbihan", "nancy": "Meurthe-et-Moselle",
+    "blois": "Loir-et-Cher", "agen": "Lot-et-Garonne", "auch": "Gers",
+}
 
 
 async def get_image(query: str, fallback_mode: str = "ville") -> str:

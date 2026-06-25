@@ -38,7 +38,7 @@ const useAuth = () => {
       const clientId = window.VA_CONFIG && window.VA_CONFIG.GOOGLE_CLIENT_ID;
       if (!clientId || !window.google || !window.google.accounts) {
         // Fallback stub si SDK Google non chargé ou client_id manquant
-        const email = (prompt('SDK Google indisponible — entrez votre email :') || '').trim();
+        const email = (prompt(t('SDK Google indisponible — entrez votre email :')) || '').trim();
         if (!email) return resolve(null);
         const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         window.VA_API.googleAuth({
@@ -53,7 +53,7 @@ const useAuth = () => {
 
       // Flow OAuth2 popup (évite FedCM qui peut être bloqué par le navigateur)
       if (!window.google.accounts.oauth2) {
-        reject(new Error('Google OAuth2 SDK indisponible'));
+        reject(new Error(t('Google OAuth2 SDK indisponible')));
         return;
       }
       const tokenClient = window.google.accounts.oauth2.initTokenClient({
@@ -135,13 +135,13 @@ const AuthModal = ({ open, onClose, defaultTab = 'login', onSuccess }) => {
   return (
     <div className="va-modal-overlay" onClick={(e) => { if (e.target.classList.contains('va-modal-overlay')) onClose(); }}>
       <div className="va-modal">
-        <button className="va-modal__close" onClick={onClose} aria-label="Fermer"><IClose size={18} /></button>
+        <button className="va-modal__close" onClick={onClose} aria-label={t('Fermer')}><IClose size={18} /></button>
         <div style={{ marginBottom: 24 }}>
           <Wordmark size="md" />
         </div>
-        <h2 className="va-modal__title">{tab === 'login' ? 'Bon retour' : 'Créer un compte'}</h2>
+        <h2 className="va-modal__title">{tab === 'login' ? t('Bon retour') : t('Créer un compte')}</h2>
         <p className="va-modal__sub">
-          {tab === 'login' ? 'Connectez-vous pour réserver et retrouver vos conversations.' : 'Quelques infos suffisent. Vous pourrez réserver immédiatement.'}
+          {tab === 'login' ? t('Connectez-vous pour réserver et retrouver vos conversations.') : t('Quelques infos suffisent. Vous pourrez réserver immédiatement.')}
         </p>
 
         <button className="va-google-btn" onClick={doGoogle} disabled={busy}>
@@ -153,51 +153,51 @@ const AuthModal = ({ open, onClose, defaultTab = 'login', onSuccess }) => {
               <path d="M9 3.58c1.32 0 2.51.46 3.45 1.35l2.58-2.59C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.93 4.96L3.95 7.3C4.66 5.17 6.65 3.58 9 3.58z" fill="#EA4335"/>
             </svg>
           </span>
-          Continuer avec Google
+          {t('Continuer avec Google')}
         </button>
 
-        <div className="va-modal__sep"><span>ou</span></div>
+        <div className="va-modal__sep"><span>{t('ou')}</span></div>
 
         <form onSubmit={submit} className="va-form">
           {tab === 'signup' && (
             <>
               <div className="va-form__row">
                 <label className="va-form__field">
-                  <span>Prénom</span>
+                  <span>{t('Prénom')}</span>
                   <input name="prenom" required maxLength={100} />
                 </label>
                 <label className="va-form__field">
-                  <span>Nom</span>
+                  <span>{t('Nom')}</span>
                   <input name="nom" required maxLength={100} />
                 </label>
               </div>
               <label className="va-form__field">
-                <span>Date de naissance</span>
+                <span>{t('Date de naissance')}</span>
                 <input name="date_naissance" type="date" required />
               </label>
             </>
           )}
           <label className="va-form__field">
-            <span>Email</span>
+            <span>{t('Email')}</span>
             <input name="email" type="email" required autoComplete="email" />
           </label>
           <label className="va-form__field">
-            <span>Mot de passe</span>
+            <span>{t('Mot de passe')}</span>
             <input name="password" type="password" required minLength={6} autoComplete={tab === 'login' ? 'current-password' : 'new-password'} />
           </label>
 
           {error && <div className="va-form__error">{error}</div>}
 
           <button type="submit" className="va-btn va-btn--primary va-btn--lg" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
-            {busy ? 'Veuillez patienter…' : (tab === 'login' ? 'Se connecter' : 'Créer mon compte')}
+            {busy ? t('Veuillez patienter…') : (tab === 'login' ? t('Se connecter') : t('Créer mon compte'))}
           </button>
         </form>
 
         <div className="va-modal__switch">
           {tab === 'login' ? (
-            <>Pas de compte ? <a onClick={() => setTab('signup')}>S&rsquo;inscrire</a></>
+            <>{t('Pas de compte ?')} <a onClick={() => setTab('signup')}>{t('S’inscrire')}</a></>
           ) : (
-            <>Déjà un compte ? <a onClick={() => setTab('login')}>Se connecter</a></>
+            <>{t('Déjà un compte ?')} <a onClick={() => setTab('login')}>{t('Se connecter')}</a></>
           )}
         </div>
       </div>
@@ -222,13 +222,13 @@ const WelcomeToast = ({ user, onDismiss }) => {
       </div>
       <div className="va-toast__body">
         <span className="va-toast__title">
-          {isReturning ? 'Bon retour' : 'Bienvenue'}, {user.prenom} !
+          {isReturning ? t('Bon retour, {prenom} !', { prenom: user.prenom }) : t('Bienvenue, {prenom} !', { prenom: user.prenom })}
         </span>
         <span className="va-toast__sub">
-          Vous êtes connecté{user.email ? ` · ${user.email}` : ''}.
+          {user.email ? t('Vous êtes connecté · {email}.', { email: user.email }) : t('Vous êtes connecté.')}
         </span>
       </div>
-      <button className="va-toast__close" onClick={() => { setLeaving(true); setTimeout(onDismiss, 240); }} aria-label="Fermer">
+      <button className="va-toast__close" onClick={() => { setLeaving(true); setTimeout(onDismiss, 240); }} aria-label={t('Fermer')}>
         <IClose size={14} />
       </button>
     </div>

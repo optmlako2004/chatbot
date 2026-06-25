@@ -168,10 +168,12 @@ frontend appelle. **FastAPI** génère aussi automatiquement la doc interactive
 | Composant | Technologie | Rôle |
 |---|---|---|
 | UI | **React 18** (Babel inline, sans build) | Composants déclaratifs |
-| Style | CSS custom (dark / light / system) | Identité visuelle |
+| Style | CSS custom (dark / light / system) **+ responsive** (mobile / tablette / desktop) | Identité visuelle, adaptée à toutes les tailles d'écran |
 | Auth Google | **Google Identity Services** | Sign-In Web |
 | HTTP | `fetch` natif | Appels à l'API FastAPI |
 | Voix | **Web Speech API** | Dictée (STT) + lecture des réponses (TTS) |
+| Multilingue | Moteur i18n maison (`i18n.js` + `i18n-dict.js`) | **Français / Anglais / Espagnol**, sélecteur dans le header ; l'assistant répond aussi dans la langue choisie |
+| Visuel | Endpoint `/images` (Wikipedia, sans clé) | Photo de la **ville de départ** en arrière-plan de la page réservation (Paris → Tour Eiffel…) |
 
 ### Infrastructure (production)
 
@@ -198,7 +200,6 @@ frontend appelle. **FastAPI** génère aussi automatiquement la doc interactive
 │   │   ├── models.py          # Tables : User, Route, Trajet, Billet, Reclamation,
 │   │   │                      #          ChatSession, ChatMessage, Admin
 │   │   ├── schemas.py         # Schémas Pydantic in/out
-│   │   ├── data/cgv/          # Documents CGV (Markdown) indexés par le RAG
 │   │   ├── routers/           # auth, trajets, billets, reclamations, chat, admin, lieux, images, stats
 │   │   └── services/
 │   │       ├── chatbot.py     # ❤ State machine + détection d'intention + sécurité
@@ -211,12 +212,18 @@ frontend appelle. **FastAPI** génère aussi automatiquement la doc interactive
 │   │       ├── billet_pdf.py  # Billet PDF (ReportLab)
 │   │       ├── email.py       # Email HTML + PDF (Brevo)
 │   │       ├── identity.py    # Vérification d'identité (tolérante à l'inversion)
-│   │       └── numeros.py     # Génération des numéros TRV-2026-XXXXXX
+│   │       ├── numeros.py     # Génération des numéros TRV-2026-XXXXXX
+│   │       └── pixabay.py     # Photos de ville (Wikipedia → Pixabay → cache) pour /images
+│   ├── data/
+│   │   ├── cgv/               # Documents CGV (Markdown) indexés par le RAG
+│   │   └── city_photos.json   # Dataset statique de photos de villes
 │   ├── seed.py                # Peuplement de démo (trajets, users, billets)
 │   └── migrate_to_postgres.py # Migration des données SQLite → Neon
 └── frontend/
     ├── index.html             # Charge React + Babel + Google Identity + tous les .jsx
     ├── api.js                 # Wrappers fetch (window.VA_API)
+    ├── i18n.js                # Moteur de traduction (t(), useT, setLang) FR/EN/ES
+    ├── i18n-dict.js           # Dictionnaire FR → EN/ES (window.VA_DICT)
     ├── voyage-pages.jsx       # Pages : Home / Results / Booking / Confirm / MesBillets
     ├── voyage-chatbot-interactive.jsx  # L'assistant IA (UI complète)
     ├── voyage-auth.jsx        # Connexion Google / email
@@ -252,7 +259,7 @@ champ `tools_used` renvoyé par l'API indique quelles sources ont servi
 
 ### Source 1 — RAG documentaire vectoriel (`rag.py` + `reranker.py`)
 Pour les **questions sur les règles** (annulation, bagages, remboursement).
-- Les **CGV** (`backend/app/data/cgv/`) sont découpées, vectorisées et stockées dans
+- Les **CGV** (`backend/data/cgv/`) sont découpées, vectorisées et stockées dans
   **FAISS** au démarrage.
 - À chaque question : **bi-encoder** → 10 candidats → **cross-encoder** → 3 meilleurs
   chunks → injectés dans le prompt.
@@ -286,7 +293,7 @@ figés dans le temps) :
 > **change** ou ce qui est **personnel**.
 
 ### State machine + NER pour les actions sensibles
-Modifier / annuler / réclamer **ne sont jamais laissés au LLM** (il halluciner ait).
+Modifier / annuler / réclamer **ne sont jamais laissés au LLM** (il hallucinerait).
 Une **machine à états** déterministe guide le parcours :
 
 ```
@@ -467,7 +474,7 @@ python3 -m http.server 5173
 ## 10. Endpoints de l'API
 
 **Auth** — `POST /auth/signup` · `POST /auth/login` · `POST /auth/google` · `GET /auth/me`
-**Voyage** — `GET /trajets` · `GET /trajets/{id}` · `GET /trajets/destinations` · `GET /lieux`
+**Voyage** — `GET /trajets` · `GET /trajets/{id}` · `GET /trajets/destinations` · `GET /lieux` · `GET /images?q={ville}`
 **Billets** — `POST /billets` · `GET /billets/mine` · `POST /billets/access` · `POST /billets/{num}/modifier` · `POST /billets/{num}/annuler`
 **Réclamations** — `POST /reclamations` · `GET /reclamations/{num_suivi}`
 **Chat** — `POST /chat/start` · `POST /chat/message` · `GET /chat/sessions` · `POST /chat/sessions/{token}/end`
@@ -506,6 +513,7 @@ Le chatbot a été testé en conditions « adversariales » :
 | **RAG / vectorisation** | LangChain + FAISS + embeddings gte-small + reranker (`rag.py`, `reranker.py`) |
 | **Base de session (users + historique)** | Tables `users`, `chat_sessions`, `chat_messages` |
 | **Voix (option)** | Web Speech API : dictée + lecture des réponses |
+| **Multilingue (bonus)** | Interface + assistant en français, anglais et espagnol (`i18n.js`) |
 | **Recherche web (bonus)** | DuckDuckGo (`ddgs`) + APIs temps réel (météo, heure, change) |
 | **Déploiement en ligne** | **Hugging Face Spaces + Neon** → https://optimalako-voyage-assistant.hf.space |
 

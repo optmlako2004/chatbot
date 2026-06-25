@@ -64,11 +64,11 @@ const UserChip = ({ user, onLogout, onGo }) => {
               onClick={() => { setOpen(false); onGo && onGo('mes-billets'); }}
               style={{ display: 'flex', alignItems: 'center', gap: 8 }}
             >
-              <IFile size={14} /> Historique de mes billets
+              <IFile size={14} /> {t('Historique de mes billets')}
             </button>
             <div style={{ height: 1, background: 'var(--va-border)', margin: '4px 0' }} />
             <button className="va-usermenu__item" onClick={() => { setOpen(false); onLogout(); }}>
-              Se déconnecter
+              {t('Se déconnecter')}
             </button>
           </div>
         </>
@@ -77,7 +77,40 @@ const UserChip = ({ user, onLogout, onGo }) => {
   );
 };
 
-const NavInt = ({ route, go, themeMode, setTheme, auth, onLogin }) => {
+const LangMenu = ({ lang, setLang }) => {
+  const [open, setOpen] = React.useState(false);
+  const LANGS = (window.VA_I18N && window.VA_I18N.LANGS) || ['fr', 'en', 'es'];
+  const LABELS = (window.VA_I18N && window.VA_I18N.LABELS) || { fr: 'Français', en: 'English', es: 'Español' };
+  return (
+    <div style={{ position: 'relative' }}>
+      <button className="va-iconbtn" title={t('Langue')} type="button" onClick={() => setOpen((o) => !o)}>
+        <IGlobe size={18} />
+      </button>
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+          <div className="va-usermenu" style={{ minWidth: 150 }}>
+            {LANGS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                className="va-usermenu__item"
+                onClick={() => { setLang(l); setOpen(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: l === lang ? 600 : 400 }}
+              >
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--va-text-muted)', width: 18 }}>{l.toUpperCase()}</span>
+                {LABELS[l]}
+                {l === lang && <ICheck size={13} style={{ marginLeft: 'auto', color: 'var(--va-accent)' }} />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const NavInt = ({ route, go, themeMode, setTheme, auth, onLogin, lang, setLang }) => {
   const linkCls = (r) => 'va-navlink' + (route === r ? ' is-active' : '');
   return (
     <nav className="va-nav va-nav--bordered">
@@ -86,18 +119,18 @@ const NavInt = ({ route, go, themeMode, setTheme, auth, onLogin }) => {
           <Wordmark />
         </a>
         <div className="va-nav__links">
-          <a className={linkCls('home')}    onClick={() => go('home')}>Accueil</a>
-          <a className={linkCls('results')} onClick={() => go('results')}>Destinations</a>
-          <a className={linkCls('mes-billets')} onClick={() => go('mes-billets')}>Mes billets</a>
-          <a className={linkCls('assistant')} onClick={() => go('assistant')}>Assistant</a>
+          <a className={linkCls('home')}    onClick={() => go('home')}>{t('Accueil')}</a>
+          <a className={linkCls('results')} onClick={() => go('results')}>{t('Destinations')}</a>
+          <a className={linkCls('mes-billets')} onClick={() => go('mes-billets')}>{t('Mes billets')}</a>
+          <a className={linkCls('assistant')} onClick={() => go('assistant')}>{t('Assistant')}</a>
         </div>
       </div>
       <div className="va-nav__right">
-        <button className="va-iconbtn" title="Langue"><IGlobe size={18} /></button>
-        <div className="va-themetoggle" aria-label="Thème">
-          <button className={themeMode === 'light' ? 'is-active' : ''} title="Clair"  onClick={() => setTheme('light')}><ISun size={14} /></button>
-          <button className={themeMode === 'dark'  ? 'is-active' : ''} title="Sombre" onClick={() => setTheme('dark')}><IMoon size={14} /></button>
-          <button className={themeMode === 'system' ? 'is-active' : ''} title="Système" onClick={() => setTheme('system')}><IMonitor size={14} /></button>
+        <LangMenu lang={lang} setLang={setLang} />
+        <div className="va-themetoggle" aria-label={t('Thème')}>
+          <button className={themeMode === 'light' ? 'is-active' : ''} title={t('Clair')}  onClick={() => setTheme('light')}><ISun size={14} /></button>
+          <button className={themeMode === 'dark'  ? 'is-active' : ''} title={t('Sombre')} onClick={() => setTheme('dark')}><IMoon size={14} /></button>
+          <button className={themeMode === 'system' ? 'is-active' : ''} title={t('Système')} onClick={() => setTheme('system')}><IMonitor size={14} /></button>
         </div>
         {auth.isAuth ? (
           <UserChip user={auth.user} onLogout={auth.logout} onGo={go} />
@@ -107,7 +140,7 @@ const NavInt = ({ route, go, themeMode, setTheme, auth, onLogin }) => {
             style={{ marginLeft: 6 }}
             onClick={() => onLogin('login')}
           >
-            Se connecter
+            {t('Se connecter')}
           </button>
         )}
       </div>
@@ -120,12 +153,14 @@ const FloatingFAB = ({ go, route }) => {
   return (
     <button className="va-fab" onClick={() => go('assistant')}>
       <span className="va-fab__avatar"><ISparkles size={16} /></span>
-      Discuter avec l&rsquo;assistant
+      {t('Discuter avec l’assistant')}
     </button>
   );
 };
 
 const VoyageApp = () => {
+  // Abonnement i18n à la racine : tout l'arbre se re-rend au changement de langue.
+  const { lang, setLang } = useT();
   const { mode: themeMode, setMode: setTheme, resolved } = useTheme();
   const { route, ctx, go } = useRoute();
   const auth = useAuth();
@@ -150,7 +185,7 @@ const VoyageApp = () => {
   return (
     <div className={`va ${resolved === 'dark' ? 'va-dark' : ''}`} data-screen-label={route}>
       <div className="va-app">
-        <NavInt route={route} go={go} themeMode={themeMode} setTheme={setTheme} auth={auth} onLogin={openAuth} />
+        <NavInt route={route} go={go} themeMode={themeMode} setTheme={setTheme} auth={auth} onLogin={openAuth} lang={lang} setLang={setLang} />
         <main className={`va-app__main${isChat ? ' va-app__main--chat' : ''}`} data-screen-label={`page-${route}`}>
           {page}
         </main>

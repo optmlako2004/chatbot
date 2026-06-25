@@ -3,67 +3,44 @@
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
-\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage[a4paper,margin=2.5cm]{geometry}
 \usepackage{lmodern}
-\usepackage{xcolor}
-\usepackage{graphicx}
 \usepackage{enumitem}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{titlesec}
-\usepackage{fancyhdr}
 \usepackage[hidelinks]{hyperref}
 
-% Couleurs (orange de l'application)
-\definecolor{accent}{HTML}{D97757}
-\definecolor{dark}{HTML}{243857}
-\definecolor{light}{HTML}{F5F3EE}
-
-\hypersetup{colorlinks=true, linkcolor=dark, urlcolor=accent}
-
-% Titres de section colorés
-\titleformat{\section}{\Large\bfseries\color{dark}}{\thesection}{0.6em}{}
-\titleformat{\subsection}{\large\bfseries\color{accent}}{\thesubsection}{0.5em}{}
-
-% En-tête / pied de page
-\pagestyle{fancy}
-\fancyhf{}
-\renewcommand{\headrulewidth}{0.4pt}
-\fancyhead[L]{\small\color{dark}Voyage Assistant}
-\fancyhead[R]{\small\color{dark}SAE2 BUT3}
-\fancyfoot[C]{\thepage}
-
 \newcommand{\code}[1]{\texttt{\small #1}}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+
+\title{\textbf{Voyage Assistant}\\[0.3cm]
+\large Assistant IA conversationnel pour le transport\\
+\normalsize Rapport de projet --- SAE2 BUT3}
+\author{}
+\date{}
 
 \begin{document}
 
-% ----------------------------------------------------------------------
-% Page de garde
-% ----------------------------------------------------------------------
 \begin{titlepage}
 \centering
-\vspace*{1.5cm}
-{\color{accent}\rule{\linewidth}{2pt}}\\[0.8cm]
-{\Huge\bfseries\color{dark} Voyage Assistant}\\[0.4cm]
+\vspace*{2cm}
+{\Huge\bfseries Voyage Assistant}\\[0.5cm]
 {\Large Assistant IA conversationnel pour le transport}\\[0.3cm]
-{\large Rapport de projet --- SAE2 BUT3}\\[0.5cm]
-{\color{accent}\rule{\linewidth}{2pt}}\\[1.2cm]
+{\large Rapport de projet --- SAE2 BUT3}\\[1.5cm]
 
 \begin{tabular}{>{\bfseries}l l}
 Ako Christian & IA conversationnelle \& RAG, déploiement \\[0.2cm]
 Carl Similien & Back-end \& intégration (API, base de données) \\[0.2cm]
 Noé Cervera & Modèles \& évaluation (embeddings, reranker, NER) \\[0.2cm]
 Dhanoush Kessavane & Front-end, design \& documentation \\
-\end{tabular}\\[1.2cm]
+\end{tabular}\\[1.5cm]
 
-{\large Encadrement : \textbf{Bilal Faye} (LIPN, CNRS UMR 7030)}\\[0.6cm]
-{\large Promotion 2025--2026}\\[1.5cm]
+Encadrement : \textbf{Bilal Faye} (LIPN, CNRS UMR 7030)\\[0.3cm]
+Promotion 2025--2026\\[2cm]
 
-\fbox{\parbox{0.9\linewidth}{\centering\vspace{0.2cm}
-\textbf{Application en ligne}\\[0.2cm]
-\url{https://optimalako-voyage-assistant.hf.space}\\[0.2cm]
-\textbf{Code source}~: \url{https://github.com/optmlako2004/chatbot}
-\vspace{0.2cm}}}
+Application en ligne : \url{https://optimalako-voyage-assistant.hf.space}\\[0.2cm]
+Code source : \url{https://github.com/optmlako2004/chatbot}
 
 \vfill
 \end{titlepage}
@@ -71,7 +48,6 @@ Dhanoush Kessavane & Front-end, design \& documentation \\
 \tableofcontents
 \newpage
 
-% ----------------------------------------------------------------------
 \section{Introduction et contexte}
 
 Ce projet s'inscrit dans la \textbf{SAE2 du BUT3}, dont l'objectif est de concevoir
@@ -84,7 +60,8 @@ L'application, baptisée \textbf{Voyage Assistant}, permet de rechercher et rés
 un trajet, de gérer son compte et ses billets, et surtout de \textbf{dialoguer avec
 un assistant IA} qui répond aux questions de voyage et exécute réellement des actions
 (modification de réservation, réclamation, annulation). Elle est \textbf{déployée en
-ligne} et accessible publiquement.
+ligne} et accessible publiquement, et son interface est \textbf{multilingue}
+(français, anglais, espagnol).
 
 \subsection{Objectifs}
 \begin{itemize}[nosep]
@@ -94,7 +71,6 @@ ligne} et accessible publiquement.
   \item \textbf{Déployer} l'ensemble en ligne, gratuitement.
 \end{itemize}
 
-% ----------------------------------------------------------------------
 \section{Cahier des charges et réponses apportées}
 
 Le tableau suivant met en regard chaque exigence du sujet et sa réalisation concrète.
@@ -112,12 +88,12 @@ RAG / vectorisation & LangChain + FAISS + embeddings \code{gte-small} + reranker
 Base de session & Tables \code{users}, \code{chat\_sessions}, \code{chat\_messages} \\
 Voix (option) & Web Speech API : dictée vocale + lecture des réponses \\
 Recherche web (bonus) & DuckDuckGo + APIs temps réel (météo, heure, change) \\
+Multilingue (bonus) & Interface et assistant en français, anglais et espagnol \\
 Déploiement en ligne & Hugging Face Spaces + Neon (PostgreSQL) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-% ----------------------------------------------------------------------
 \section{Architecture technique}
 
 L'application suit une architecture \textbf{client--serveur} classique, enrichie d'une
@@ -126,8 +102,9 @@ couche d'intelligence artificielle côté serveur.
 \subsection{Vue d'ensemble}
 \begin{itemize}[nosep]
   \item \textbf{Frontend} (\code{frontend/}) : React 18 (sans étape de build, via Babel
-        navigateur), CSS personnalisé avec thèmes clair/sombre, et \textbf{Web Speech
-        API} pour la voix.
+        navigateur), CSS personnalisé avec thèmes clair/sombre et design responsive,
+        \textbf{Web Speech API} pour la voix, et un moteur de \textbf{traduction}
+        français / anglais / espagnol.
   \item \textbf{Backend} (\code{backend/}) : FastAPI, validation Pydantic, ORM
         SQLAlchemy, et les services d'IA (LLM, RAG, reranker, NER, APIs temps réel).
   \item \textbf{Base de données} : PostgreSQL (Neon) en production, SQLite en
@@ -137,11 +114,10 @@ couche d'intelligence artificielle côté serveur.
 
 \subsection{Modèle de données}
 Les entités principales sont : \code{User}, \code{Route} (catalogue de plus de 182\,000
-liaisons réelles), \code{Trajet} (occurrence datée d'une route), \code{Billet},
-\code{Reclamation}, ainsi que \code{ChatSession} et \code{ChatMessage} pour la
-\textbf{persistance des conversations}.
+liaisons réelles, tous modes confondus), \code{Trajet} (occurrence datée d'une route),
+\code{Billet}, \code{Reclamation}, ainsi que \code{ChatSession} et \code{ChatMessage}
+pour la \textbf{persistance des conversations}.
 
-% ----------------------------------------------------------------------
 \section{L'intelligence conversationnelle}
 
 Le c\oe ur du projet est l'assistant. Sa philosophie : \textbf{un LLM ne suffit pas}.
@@ -152,7 +128,9 @@ le \textbf{RAG}.
 \subsection{LLM --- Google Gemini 2.5 Flash}
 Le modèle reçoit un \emph{system prompt} strict (rôle, périmètre, refus codifiés),
 l'historique de la conversation, le contexte récupéré, puis le message courant. Il ne
-sert qu'à \textbf{rédiger} la réponse, jamais à exécuter une action sensible.
+sert qu'à \textbf{rédiger} la réponse, jamais à exécuter une action sensible. Une
+consigne de langue lui est ajoutée pour qu'il réponde dans la langue choisie par
+l'utilisateur.
 
 \subsection{Qu'est-ce que le RAG et la vectorisation ?}
 \textbf{RAG} (\emph{Retrieval-Augmented Generation}) consiste à \textbf{récupérer
@@ -205,7 +183,6 @@ naissance) $\rightarrow$ exécution réelle en base $\rightarrow$ envoi de l'e-m
 billet PDF mis à jour. Cette séparation \textbf{exécution / rédaction} élimine les
 hallucinations d'action.
 
-% ----------------------------------------------------------------------
 \section{Fonctionnalités principales}
 \begin{itemize}[nosep]
   \item Recherche multimodale (aller simple / aller-retour) avec gestion des escales
@@ -215,10 +192,11 @@ hallucinations d'action.
   \item Authentification \textbf{Google} ou e-mail / mot de passe (tokens signés).
   \item Assistant IA : questions, modification, réclamation, annulation, suivi.
   \item \textbf{Voix} : dictée et lecture des réponses (Web Speech API).
+  \item \textbf{Interface multilingue} français / anglais / espagnol, avec sélecteur de
+        langue ; l'assistant répond également dans la langue choisie.
   \item Persistance et reprise des conversations, notation en fin de session.
 \end{itemize}
 
-% ----------------------------------------------------------------------
 \section{Sécurité}
 La sécurité du chatbot repose sur plusieurs couches : nettoyage des entrées, garde-fous
 contre insultes et \textbf{injections de prompt}, anti-extraction d'informations sans
@@ -227,7 +205,6 @@ identité vérifiée, \emph{system prompt} restrictif, requêtes SQL paramétré
 d'identité. Aucun secret n'est présent dans le code : tout passe par des variables
 d'environnement.
 
-% ----------------------------------------------------------------------
 \section{Déploiement}
 
 \subsection{Choix d'hébergement}
@@ -255,7 +232,6 @@ Space (région \emph{us-east-1}) pour minimiser la latence.
   \item \textbf{OAuth Google} : ajout de l'URL du Space dans les origines autorisées.
 \end{itemize}
 
-% ----------------------------------------------------------------------
 \section{Difficultés rencontrées et solutions}
 
 \begin{center}
@@ -280,7 +256,6 @@ Migration des 182\,k routes & Script de copie SQLite $\rightarrow$ Neon par lots
 \end{tabular}
 \end{center}
 
-% ----------------------------------------------------------------------
 \section{Répartition du travail}
 
 \begin{center}
@@ -295,21 +270,20 @@ Carl Similien & Développement back-end (API FastAPI, base de données) et trava
 d'intégration entre les modules. \\
 Noé Cervera & Mise au point et évaluation des modèles (embeddings, reranking, NER),
 qualité des réponses. \\
-Dhanoush Kessavane & Développement du front-end, conception graphique et rédaction de
-la documentation. \\
+Dhanoush Kessavane & Développement du front-end, conception graphique, tests de
+l'application et rédaction de la documentation. \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-% ----------------------------------------------------------------------
 \section{Conclusion et perspectives}
 
 Voyage Assistant répond à l'ensemble des exigences de la SAE2 : application full-stack,
 LLM couplé à une chaîne RAG vectorielle conforme aux concepts du cours, persistance des
-sessions, option vocale, recherche web enrichie d'APIs temps réel, et \textbf{déploiement
-en ligne effectif}. Au-delà de la simple intégration d'un modèle, le projet démontre
-une architecture où l'IA s'appuie sur des \textbf{sources de vérité} pour rester
-factuelle et utile.
+sessions, option vocale, interface multilingue, recherche web enrichie d'APIs temps
+réel, et \textbf{déploiement en ligne effectif}. Au-delà de la simple intégration d'un
+modèle, le projet démontre une architecture où l'IA s'appuie sur des \textbf{sources de
+vérité} pour rester factuelle et utile.
 
 \textbf{Perspectives} : enrichir le RAG avec davantage de documents métier, ajouter des
 notifications en temps réel, et industrialiser le déploiement (intégration continue,

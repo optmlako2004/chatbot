@@ -1,7 +1,30 @@
 """Génère le PDF d'un billet de voyage (à joindre au mail de confirmation)."""
 from __future__ import annotations
 
+import re
 from io import BytesIO
+
+# Motif d'un numéro de billet Voyage Assistant (TRV-AAAA-XXXX...).
+_BILLET_NUM_RE = re.compile(r"\bTRV-\d{4}-[A-Z0-9]{4,}\b", re.IGNORECASE)
+
+
+def extract_billet_number_from_pdf(pdf_bytes: bytes) -> str | None:
+    """Lit un PDF et en extrait le numéro de billet (TRV-AAAA-XXXX) s'il y figure.
+
+    Sert à la pièce jointe du chatbot : on n'accepte que les billets délivrés par
+    Voyage Assistant, qui portent ce numéro. Retourne le numéro en MAJUSCULES, ou
+    None si le PDF est illisible ou ne contient pas de numéro de ce format."""
+    try:
+        from pypdf import PdfReader
+    except Exception:  # pragma: no cover — dépendance manquante
+        return None
+    try:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages)
+    except Exception:
+        return None
+    m = _BILLET_NUM_RE.search(text or "")
+    return m.group(0).upper() if m else None
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4

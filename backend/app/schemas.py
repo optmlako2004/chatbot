@@ -84,6 +84,7 @@ class BilletCreate(BaseModel):
     prix_paye: Optional[float] = None
     classe: Optional[str] = None
     nb_places: Optional[int] = 1
+    lang: Optional[str] = "fr"
 
 
 class BilletOut(BaseModel):
@@ -134,11 +135,13 @@ class ReclamationOut(BaseModel):
 
 class ChatStart(BaseModel):
     session_token: Optional[str] = None
+    lang: Optional[str] = "fr"
 
 
 class ChatMessage(BaseModel):
     session_token: str
     message: str = Field(min_length=1, max_length=20000)
+    lang: Optional[str] = "fr"
 
 
 class ChatMessageOut(BaseModel):
@@ -157,6 +160,7 @@ class ChatResponse(BaseModel):
     tools_used: list[str] = []
     message_id: str
     quick_replies: list[str] = []
+    results: list[dict] = []
 
 
 class AdminLogin(BaseModel):

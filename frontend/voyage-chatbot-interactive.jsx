@@ -17,9 +17,9 @@ const TOOL_LABELS = {
 };
 // "gemini" est volontairement exclu : pas besoin d'étiquette quand c'est juste l'IA qui répond.
 // Les tags composés ("api+web", "rag+web") sont décomposés et joints par " + ".
-const labelForTool = (t) => {
-  if (!t) return null;
-  const labels = String(t).split('+').map((p) => TOOL_LABELS[p]).filter(Boolean);
+const labelForTool = (toolKey) => {
+  if (!toolKey) return null;
+  const labels = String(toolKey).split('+').map((p) => TOOL_LABELS[p]).filter(Boolean).map((l) => t(l));
   return labels.length ? labels.join(' + ') : null;
 };
 
@@ -67,13 +67,14 @@ const QUICK_ITEMS = [
   { id: 'claim',   Icon: IFile,  title: 'Faire une réclamation',     sub: 'Bagage, service, remboursement' },
   { id: 'help',    Icon: IHelp,  title: 'Question générale',         sub: 'Tarifs, conditions, destinations' },
 ];
+// Le titre est envoyé au backend comme message ; on traduit uniquement l'affichage.
 
 const Msg = {
   Bot: ({ children, time, tool }) => (
     <div className="va-msg va-msg--bot va-anim-in">
       <div className="va-msg__meta">
         <span className="va-msg__avatar"><ISparkles size={13} /></span>
-        <span>Assistant</span>
+        <span>{t('Assistant')}</span>
         {tool && <><span style={{ opacity: 0.5 }}>·</span><span style={{ color: 'var(--va-accent)' }}>{tool}</span></>}
         {time && <><span style={{ opacity: 0.5 }}>·</span><span>{time}</span></>}
       </div>
@@ -84,7 +85,7 @@ const Msg = {
     <div className="va-msg va-msg--user va-anim-in">
       <div className="va-msg__meta">
         {time && <><span>{time}</span><span style={{ opacity: 0.5 }}>·</span></>}
-        <span>Vous</span>
+        <span>{t('Vous')}</span>
       </div>
       <div className="va-msg__body">{children}</div>
     </div>
@@ -93,9 +94,9 @@ const Msg = {
     <div className="va-msg va-msg--bot va-anim-in">
       <div className="va-msg__meta">
         <span className="va-msg__avatar"><ISparkles size={13} /></span>
-        <span>Assistant</span>
+        <span>{t('Assistant')}</span>
         <span style={{ opacity: 0.5 }}>·</span>
-        <span>écrit…</span>
+        <span>{t('écrit…')}</span>
       </div>
       <div className="va-msg__body">
         <div className="va-thinking"><span></span><span></span><span></span></div>
@@ -110,8 +111,8 @@ const QuickRepliesInt = ({ onPick }) => (
       <button key={id} className="va-quick" onClick={() => onPick(title)}>
         <span className="va-quick__icon"><Icon size={18} /></span>
         <span className="va-quick__text">
-          <span className="va-quick__title">{title}</span>
-          <span className="va-quick__sub">{sub}</span>
+          <span className="va-quick__title">{t(title)}</span>
+          <span className="va-quick__sub">{t(sub)}</span>
         </span>
         <IChevronRight size={16} className="va-quick__chev" />
       </button>
@@ -129,20 +130,109 @@ const ChipReplies = ({ items, onPick }) => (
   </div>
 );
 
+/* Cartes de résultats de recherche affichées sous une réponse bot.
+   Chips de filtre transport (client-side) + cartes compactes cliquables → page réservation. */
+const RESULT_FILTERS = [
+  { key: 'all',    label: 'Tous',   type: null },
+  { key: 'train',  label: 'Train',  type: 'train' },
+  { key: 'avion',  label: 'Avion',  type: 'avion' },
+  { key: 'bus',    label: 'Bus',    type: 'bus' },
+  { key: 'bateau', label: 'Bateau', type: 'bateau' },
+];
+
+const ResultCards = ({ results, onSelect }) => {
+  const [filter, setFilter] = React.useState('all');
+  const active = RESULT_FILTERS.find((f) => f.key === filter) || RESULT_FILTERS[0];
+  const shown = active.type ? results.filter((it) => it.type === active.type) : results;
+  const fmtDur = (it) => {
+    const dep = new Date(it.date_depart);
+    const arr = new Date(it.date_arrivee);
+    const mins = Math.round((arr - dep) / 60000);
+    if (isNaN(mins) || mins < 0) return '';
+    return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, '0')}`;
+  };
+  const fmtTime = (s) => {
+    const d = new Date(s);
+    return isNaN(d) ? '' : d.toLocaleTimeString(window.VA_I18N.locale(), { hour: '2-digit', minute: '2-digit' });
+  };
+  const fmtDate = (s) => {
+    const d = new Date(s);
+    return isNaN(d) ? '' : d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  const modeLabel = { train: 'Train', avion: 'Avion', bus: 'Bus', bateau: 'Bateau' };
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+        {RESULT_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            className={`va-chip ${filter === f.key ? 'is-active' : ''}`}
+            style={{
+              height: 32, padding: '0 14px',
+              ...(filter === f.key ? { background: 'var(--va-accent)', color: '#fff', borderColor: 'var(--va-accent)' } : {}),
+            }}
+            onClick={() => setFilter(f.key)}
+          >
+            {t(f.label)}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {shown.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--va-text-muted)' }}>{t('Aucun résultat pour ce filtre.')}</div>
+        ) : shown.map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onSelect(it)}
+            style={{
+              textAlign: 'left', cursor: 'pointer',
+              background: 'var(--va-surface)', border: '1px solid var(--va-border)',
+              borderRadius: 12, padding: '12px 14px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+              transition: 'border-color 120ms ease, box-shadow 120ms ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--va-accent)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--va-border)'; }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--va-text)', display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                <span>{it.compagnie}</span>
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--va-text-muted)' }}>{t(modeLabel[it.type] || 'Train')}</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--va-text)', marginTop: 2 }}>
+                {it.depart} → {it.arrivee}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--va-text-muted)', marginTop: 2 }}>
+                {fmtDate(it.date_depart)} · {fmtTime(it.date_depart)} · {fmtDur(it)}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--va-text)' }}>{Math.round(it.prix)} €</div>
+              <div style={{ fontSize: 12, color: 'var(--va-accent)', fontWeight: 600, marginTop: 2 }}>{t('Réserver')}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const ChatHistorySidebar = ({ isAuth, sessions, currentToken, onLoadSession, onRequestDelete, onLogin }) => (
   <aside className="va-chatside">
     <div className="va-chatside__head">
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--va-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-        Historique
+        {t('Historique')}
       </div>
     </div>
     {!isAuth ? (
       <div className="va-chatside__login">
-        <p>Connectez-vous pour retrouver l&rsquo;historique de vos conversations sur tous vos appareils.</p>
-        <button onClick={onLogin} type="button">Se connecter</button>
+        <p>{t('Connectez-vous pour retrouver l’historique de vos conversations sur tous vos appareils.')}</p>
+        <button onClick={onLogin} type="button">{t('Se connecter')}</button>
       </div>
     ) : sessions.length === 0 ? (
-      <div className="va-chatside__empty">Aucune conversation pour l&rsquo;instant.</div>
+      <div className="va-chatside__empty">{t('Aucune conversation pour l’instant.')}</div>
     ) : (
       <div className="va-chatside__list">
         {sessions.map((s) => (
@@ -155,13 +245,13 @@ const ChatHistorySidebar = ({ isAuth, sessions, currentToken, onLoadSession, onR
               className="va-chatside__item"
               onClick={() => onLoadSession(s.session_token)}
             >
-              <span className="va-chatside__item-title">{s.title || 'Conversation'}</span>
-              <span className="va-chatside__item-meta">{s.message_count} message{s.message_count > 1 ? 's' : ''}</span>
+              <span className="va-chatside__item-title">{s.title || t('Conversation')}</span>
+              <span className="va-chatside__item-meta">{s.message_count > 1 ? t('{count} messages', { count: s.message_count }) : t('{count} message', { count: s.message_count })}</span>
             </button>
             <button
               type="button"
               className="va-chatside__delete"
-              title="Supprimer cette conversation"
+              title={t('Supprimer cette conversation')}
               onClick={(e) => { e.stopPropagation(); onRequestDelete(s); }}
             >
               <ITrash size={14} />
@@ -178,7 +268,7 @@ const ChatHeadInt = ({ onEnd, onToggleSidebar, sidebarOpen, canEnd }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
       <button
         className="va-iconbtn"
-        title={sidebarOpen ? 'Masquer l’historique' : 'Afficher l’historique'}
+        title={sidebarOpen ? t('Masquer l’historique') : t('Afficher l’historique')}
         onClick={onToggleSidebar}
         type="button"
       >
@@ -189,18 +279,18 @@ const ChatHeadInt = ({ onEnd, onToggleSidebar, sidebarOpen, canEnd }) => (
         fontSize: 12, fontWeight: 500, color: 'var(--va-text-muted)',
         background: 'var(--va-surface-2)', border: '1px solid var(--va-border)',
         padding: '3px 9px', borderRadius: 999,
-      }}>Assistant</span>
+      }}>{t('Assistant')}</span>
     </div>
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      <span className="va-chat__status">En ligne · répond en 2 s</span>
+      <span className="va-chat__status">{t('En ligne · répond en 2 s')}</span>
       <button
         className="va-btn va-btn--sm va-btn--secondary"
         type="button"
         onClick={onEnd}
         disabled={!canEnd}
-        title="Mettre fin à la conversation et noter l’assistant"
+        title={t('Mettre fin à la conversation et noter l’assistant')}
       >
-        Mettre fin à la conversation
+        {t('Mettre fin à la conversation')}
       </button>
     </div>
   </header>
@@ -214,7 +304,7 @@ const StarRating = ({ value, onChange }) => (
         key={n}
         type="button"
         onClick={() => onChange(n)}
-        aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
+        aria-label={n > 1 ? t('{n} étoiles', { n }) : t('{n} étoile', { n })}
         style={{
           background: 'transparent', border: 'none', cursor: 'pointer',
           padding: 4, fontSize: 32, lineHeight: 1,
@@ -245,18 +335,17 @@ const InactivityModal = ({ onStay, onEnd }) => (
       boxShadow: '0 24px 60px rgba(0,0,0,0.25)', textAlign: 'center',
     }}>
       <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--va-text)', marginBottom: 8 }}>
-        Êtes-vous toujours là&nbsp;?
+        {t('Êtes-vous toujours là ?')}
       </div>
       <div style={{ fontSize: 14, color: 'var(--va-text-muted)', marginBottom: 20, lineHeight: 1.5 }}>
-        Aucun message depuis quelques minutes. Souhaitez-vous mettre fin à cette conversation&nbsp;?
-        Votre échange sera conservé et vous pourrez nous laisser une note.
+        {t('Aucun message depuis quelques minutes. Souhaitez-vous mettre fin à cette conversation ? Votre échange sera conservé et vous pourrez nous laisser une note.')}
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
         <button className="va-btn va-btn--secondary" type="button" onClick={onStay}>
-          Continuer la conversation
+          {t('Continuer la conversation')}
         </button>
         <button className="va-btn va-btn--primary" type="button" onClick={onEnd}>
-          Mettre fin
+          {t('Mettre fin')}
         </button>
       </div>
     </div>
@@ -283,24 +372,24 @@ const RatingModal = ({ onSubmit, onClose, submitting }) => {
         boxShadow: '0 24px 60px rgba(0,0,0,0.25)', textAlign: 'center',
       }}>
         <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--va-text)', marginBottom: 8 }}>
-          Comment s’est passée votre expérience&nbsp;?
+          {t('Comment s’est passée votre expérience ?')}
         </div>
         <div style={{ fontSize: 14, color: 'var(--va-text-muted)', marginBottom: 18, lineHeight: 1.5 }}>
-          Votre avis nous aide à améliorer l’assistant pour les prochains voyageurs.
+          {t('Votre avis nous aide à améliorer l’assistant pour les prochains voyageurs.')}
         </div>
         <StarRating value={rating} onChange={setRating} />
         <div style={{ fontSize: 13, color: 'var(--va-text-muted)', margin: '6px 0 14px' }}>
-          {rating === 0 ? 'Sélectionnez une note' :
-           rating === 5 ? 'Excellent — merci !' :
-           rating === 4 ? 'Très bien' :
-           rating === 3 ? 'Correct' :
-           rating === 2 ? 'Peut mieux faire' :
-           'Décevant'}
+          {rating === 0 ? t('Sélectionnez une note') :
+           rating === 5 ? t('Excellent — merci !') :
+           rating === 4 ? t('Très bien') :
+           rating === 3 ? t('Correct') :
+           rating === 2 ? t('Peut mieux faire') :
+           t('Décevant')}
         </div>
         <textarea
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
-          placeholder="Un commentaire à laisser ? (optionnel)"
+          placeholder={t('Un commentaire à laisser ? (optionnel)')}
           rows={3}
           style={{
             width: '100%', resize: 'vertical', padding: '10px 12px',
@@ -311,7 +400,7 @@ const RatingModal = ({ onSubmit, onClose, submitting }) => {
         />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button className="va-btn va-btn--secondary" type="button" onClick={onClose} disabled={submitting}>
-            Passer
+            {t('Passer')}
           </button>
           <button
             className="va-btn va-btn--primary"
@@ -319,7 +408,7 @@ const RatingModal = ({ onSubmit, onClose, submitting }) => {
             onClick={() => onSubmit(rating || 3, feedback)}
             disabled={submitting}
           >
-            {submitting ? 'Envoi…' : 'Terminer'}
+            {submitting ? t('Envoi…') : t('Terminer')}
           </button>
         </div>
       </div>
@@ -353,19 +442,19 @@ const ConfirmDeleteModal = ({ session, onConfirm, onCancel, submitting }) => (
         <ITrash size={26} />
       </div>
       <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--va-text)', marginBottom: 8 }}>
-        Supprimer définitivement cette conversation&nbsp;?
+        {t('Supprimer définitivement cette conversation ?')}
       </div>
       <div style={{ fontSize: 14, color: 'var(--va-text-muted)', marginBottom: 22, lineHeight: 1.5 }}>
         {session && session.title ? (
-          <>L’échange « <strong style={{ color: 'var(--va-text)' }}>{session.title}</strong> » sera retiré de votre historique.</>
+          <>{t('L’échange')} « <strong style={{ color: 'var(--va-text)' }}>{session.title}</strong> » {t('sera retiré de votre historique.')}</>
         ) : (
-          <>Cette conversation sera retirée de votre historique.</>
+          <>{t('Cette conversation sera retirée de votre historique.')}</>
         )}
-        <br />Cette action est irréversible.
+        <br />{t('Cette action est irréversible.')}
       </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
         <button className="va-btn va-btn--secondary" type="button" onClick={onCancel} disabled={submitting}>
-          Annuler
+          {t('Annuler')}
         </button>
         <button
           className="va-btn va-btn--primary"
@@ -374,7 +463,7 @@ const ConfirmDeleteModal = ({ session, onConfirm, onCancel, submitting }) => (
           disabled={submitting}
           style={{ background: 'var(--va-accent)' }}
         >
-          {submitting ? 'Suppression…' : 'Supprimer'}
+          {submitting ? t('Suppression…') : t('Supprimer')}
         </button>
       </div>
     </div>
@@ -391,7 +480,11 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
   const [thinking, setThinking] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState(null);
   const [sessions, setSessions] = React.useState([]);
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  // Sidebar fermée par défaut sur mobile : sinon la colonne 280px écrase le chat
+  // (la zone de saisie passait hors écran → impression que « le chatbot ne réagit plus »).
+  const [sidebarOpen, setSidebarOpen] = React.useState(
+    () => typeof window === 'undefined' || window.innerWidth > 860
+  );
   const [showInactivity, setShowInactivity] = React.useState(false);
   const [showRating, setShowRating] = React.useState(false);
   const [submittingRating, setSubmittingRating] = React.useState(false);
@@ -404,6 +497,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
   const scrollRef = React.useRef(null);
   const inactivityRef = React.useRef(null);
   const recognitionRef = React.useRef(null);
+  const fileInputRef = React.useRef(null);
 
   // Synthèse vocale d'un texte (lit à voix haute la dernière réponse bot)
   const speak = React.useCallback((text) => {
@@ -428,7 +522,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
   const toggleListening = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      setErrorMsg('Reconnaissance vocale non supportée par ce navigateur. Utilisez Chrome.');
+      setErrorMsg(t('Reconnaissance vocale non supportée par ce navigateur. Utilisez Chrome.'));
       return;
     }
     if (listening && recognitionRef.current) {
@@ -454,7 +548,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
     rec.onerror = (e) => {
       setListening(false);
       if (e.error !== 'no-speech' && e.error !== 'aborted') {
-        setErrorMsg(`Reconnaissance vocale : ${e.error}`);
+        setErrorMsg(t('Reconnaissance vocale : {error}', { error: e.error }));
       }
     };
     rec.onend = () => setListening(false);
@@ -496,7 +590,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
           setMessages(hist.map((m) => ({
             kind: m.role === 'user' ? 'user' : 'bot',
             content: m.content,
-            time: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+            time: new Date(m.created_at).toLocaleTimeString(window.VA_I18N.locale(), { hour: '2-digit', minute: '2-digit' }),
             tool: labelForTool(m.tool_used),
           })));
           setQuickReplies([]);
@@ -514,7 +608,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
       setQuickReplies(res.quick_replies || []);
       refreshSessions();
     } catch (e) {
-      setErrorMsg(`Impossible de joindre l’assistant (${e.message}). Le backend tourne-t-il sur ${window.VA_CONFIG.API_BASE} ?`);
+      setErrorMsg(t('Impossible de joindre l’assistant ({error}). Le backend tourne-t-il sur {url} ?', { error: e.message, url: window.VA_CONFIG.API_BASE }));
     }
   }, [refreshSessions]);
 
@@ -554,12 +648,12 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
       setMessages(hist.map((m) => ({
         kind: m.role === 'user' ? 'user' : 'bot',
         content: m.content,
-        time: new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date(m.created_at).toLocaleTimeString(window.VA_I18N.locale(), { hour: '2-digit', minute: '2-digit' }),
         tool: labelForTool(m.tool_used),
       })));
       setQuickReplies([]);
     } catch (e) {
-      setErrorMsg(`Impossible de charger la conversation : ${e.message}`);
+      setErrorMsg(t('Impossible de charger la conversation : {error}', { error: e.message }));
     }
   };
 
@@ -575,12 +669,13 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
       setMessages((m) => [...m, {
         kind: 'bot', content: res.answer, time: now(),
         tool: labelForTool(tool),
+        results: Array.isArray(res.results) ? res.results : null,
       }]);
       setQuickReplies(res.quick_replies || []);
       refreshSessions();
       speak(res.answer);
     } catch (e) {
-      setErrorMsg(`Erreur : ${e.message}`);
+      setErrorMsg(t('Erreur : {error}', { error: e.message }));
     } finally {
       setThinking(false);
     }
@@ -591,6 +686,38 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
     if (!txt) return;
     setInput('');
     send(txt);
+  };
+
+  // Ouvre la page de réservation pour un trajet (depuis une carte de résultat dans le chat).
+  // Construit la route object via window.enrichTrajet (même mapping que ResultsPage).
+  const openTrajet = (item) => {
+    if (!go) return;
+    const route = window.enrichTrajet ? window.enrichTrajet(item) : item;
+    go('booking', { route, pax: { adultes: 1, enfants: 0, bebes: 0 }, classId: null });
+  };
+
+  // Clic sur le trombone → ouvre le sélecteur de fichier PDF
+  const onPickFile = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ''; // permet de re-sélectionner le même fichier
+    if (!file || !sessionToken) return;
+    setMessages((m) => [...m, { kind: 'user', content: `📎 ${file.name}`, time: now() }]);
+    setThinking(true);
+    try {
+      const res = await window.VA_API.extractBillet(file);
+      setThinking(false);
+      if (res && res.found && res.numero_billet) {
+        send(t('Voici mon billet : {num}', { num: res.numero_billet }));
+      } else {
+        setMessages((m) => [...m, {
+          kind: 'bot', time: now(),
+          content: t('Ce PDF ne semble pas être un billet Voyage Assistant. Vérifiez que c’est bien le PDF reçu par e-mail.'),
+        }]);
+      }
+    } catch (err) {
+      setThinking(false);
+      setErrorMsg(t('Impossible de lire ce billet : {error}', { error: err.message }));
+    }
   };
 
   const reset = (forceNew = true) => {
@@ -608,7 +735,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
     try {
       await window.VA_API.endSession(sessionToken, rating, feedback);
     } catch (e) {
-      setErrorMsg(`Impossible d’enregistrer votre note : ${e.message}`);
+      setErrorMsg(t('Impossible d’enregistrer votre note : {error}', { error: e.message }));
     } finally {
       setSubmittingRating(false);
       setShowRating(false);
@@ -622,6 +749,9 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
 
   return (
     <div className={`va-chat ${sidebarOpen ? 'va-chat--with-sidebar' : ''}`}>
+      {sidebarOpen && (
+        <div className="va-chatside-scrim" onClick={() => setSidebarOpen(false)} />
+      )}
       {sidebarOpen && (
         <ChatHistorySidebar
           isAuth={!!(auth && auth.isAuth)}
@@ -658,7 +788,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
               refreshSessions();
               setPendingDelete(null);
             } catch (e) {
-              setErrorMsg(`Suppression impossible : ${e.message}`);
+              setErrorMsg(t('Suppression impossible : {error}', { error: e.message }));
             } finally {
               setDeletingSession(false);
             }
@@ -689,16 +819,18 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
                 <div className="va-welcome">
                   <div className="va-welcome__mark"><ISparkles size={22} /></div>
                   <h1 className="va-welcome__title">
-                    Bonjour{auth && auth.user ? `, ${auth.user.prenom}` : ''}, je suis l&rsquo;assistant Voyage.
+                    {auth && auth.user
+                      ? t('Bonjour, {name}, je suis l’assistant Voyage.', { name: auth.user.prenom })
+                      : t('Bonjour, je suis l’assistant Voyage.')}
                   </h1>
                   <p className="va-welcome__sub">
-                    Je peux consulter vos billets, modifier vos réservations et lancer des réclamations à votre place — après une rapide vérification d&rsquo;identité. Posez-moi aussi vos questions sur les bagages, tarifs, destinations.
+                    {t('Je peux consulter vos billets, modifier vos réservations et lancer des réclamations à votre place — après une rapide vérification d’identité. Posez-moi aussi vos questions sur les bagages, tarifs, destinations.')}
                   </p>
                 </div>
                 <QuickRepliesInt onPick={send} />
                 <div className="va-privacy" style={{ alignSelf: 'center' }}>
                   <IShield size={14} className="va-privacy__icon" />
-                  Vos informations restent privées. Conversations chiffrées de bout en bout.
+                  {t('Vos informations restent privées. Connexion chiffrée (HTTPS).')}
                 </div>
               </>
             ) : (
@@ -706,7 +838,14 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
                 {messages.map((m, i) => (
                   m.kind === 'user'
                     ? <Msg.User key={i} time={m.time}>{m.content}</Msg.User>
-                    : <Msg.Bot key={i} time={m.time} tool={m.tool}>{renderRichText(m.content)}</Msg.Bot>
+                    : (
+                      <Msg.Bot key={i} time={m.time} tool={m.tool}>
+                        {renderRichText(m.content)}
+                        {m.results && m.results.length > 0 && (
+                          <ResultCards results={m.results} onSelect={openTrajet} />
+                        )}
+                      </Msg.Bot>
+                    )
                 ))}
                 {thinking && <Msg.Thinking />}
                 {!thinking && quickReplies.length > 0 && (
@@ -724,13 +863,26 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSendInput(); } }}
-                placeholder="Posez votre question à l’assistant Voyage…"
+                placeholder={t('Posez votre question à l’assistant Voyage…')}
                 disabled={!sessionToken}
               />
-              <button className="va-chat__input__btn" title="Pièce jointe" type="button"><IPaperclip size={17} /></button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf"
+                style={{ display: 'none' }}
+                onChange={onPickFile}
+              />
+              <button
+                className="va-chat__input__btn"
+                title={t('Importer un billet')}
+                type="button"
+                onClick={() => fileInputRef.current && fileInputRef.current.click()}
+                disabled={!sessionToken}
+              ><IPaperclip size={17} /></button>
               <button
                 className={`va-chat__input__btn ${speakEnabled ? 'is-active' : ''}`}
-                title={speakEnabled ? 'Couper la lecture vocale' : 'Activer la lecture vocale'}
+                title={speakEnabled ? t('Couper la lecture vocale') : t('Activer la lecture vocale')}
                 type="button"
                 onClick={() => setSpeakEnabled((v) => !v)}
                 style={speakEnabled ? { color: 'var(--va-accent, #F5A623)' } : undefined}
@@ -739,7 +891,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
               </button>
               <button
                 className={`va-chat__input__btn ${listening ? 'is-active' : ''}`}
-                title={listening ? 'Arrêter la dictée' : 'Dicter à la voix'}
+                title={listening ? t('Arrêter la dictée') : t('Dicter à la voix')}
                 type="button"
                 onClick={toggleListening}
                 disabled={!sessionToken}
@@ -749,7 +901,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
               </button>
               <button
                 className={`va-chat__input__btn va-chat__input__send ${input.trim() ? 'is-active' : ''}`}
-                title="Envoyer"
+                title={t('Envoyer')}
                 onClick={onSendInput}
                 disabled={!input.trim() || thinking}
                 type="button"
@@ -758,7 +910,7 @@ const InteractiveChat = ({ go, ctx, auth, onRequestLogin }) => {
               </button>
             </div>
             <div className="va-chat__hint">
-              L&rsquo;assistant peut vérifier votre identité pour accéder à vos billets. Conversations chiffrées · supprimées après 30 jours.
+              {t('L’assistant vérifie votre identité avant tout accès à vos billets. Connexion chiffrée (HTTPS).')}
             </div>
           </div>
         </div>

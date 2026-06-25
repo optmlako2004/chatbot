@@ -53,7 +53,7 @@ const Autocomplete = ({ value, onChange, onPick, placeholder, type }) => {
           borderRadius: 8, zIndex: 200, maxHeight: 320, overflowY: 'auto',
           boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
         }}>
-          {loading && <div style={{ padding: 12, fontSize: 13, color: 'var(--va-text-muted)' }}>Recherche…</div>}
+          {loading && <div style={{ padding: 12, fontSize: 13, color: 'var(--va-text-muted)' }}>{t('Recherche…')}</div>}
           {!loading && items.map((it, i) => (
             <button
               key={`${it.nom}-${i}`}
@@ -97,19 +97,19 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
   const set = (k, v) => onChange({ ...values, [k]: v });
 
   const dateLabel = (() => {
-    if (!values.date) return 'Choisir une date';
+    if (!values.date) return t('Choisir une date');
     const d = new Date(values.date);
-    if (isNaN(d)) return 'Choisir une date';
-    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (isNaN(d)) return t('Choisir une date');
+    return d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short' });
   })();
 
   const tripType = values.tripType || 'aller';
   const roundTrip = window.isRoundTrip(tripType);
   const retourLabel = (() => {
-    if (!values.dateRetour) return 'Choisir une date';
+    if (!values.dateRetour) return t('Choisir une date');
     const d = new Date(values.dateRetour);
-    if (isNaN(d)) return 'Choisir une date';
-    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+    if (isNaN(d)) return t('Choisir une date');
+    return d.toLocaleDateString(window.VA_I18N.locale(), { weekday: 'short', day: 'numeric', month: 'short' });
   })();
 
   return (
@@ -123,12 +123,12 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
     <div className="va-search">
       {/* Départ */}
       <div className="va-search__field" onClick={(e) => { e.stopPropagation(); setEditing('depart'); }}>
-        <span className="va-search__label">Départ</span>
+        <span className="va-search__label">{t('Départ')}</span>
         {editing === 'depart' ? (
           <Autocomplete
             value={values.depart}
             type={type}
-            placeholder="Ville, gare, aéroport…"
+            placeholder={t('Ville, gare, aéroport…')}
             onChange={(v) => set('depart', v)}
             onPick={(it) => { set('depart', it.nom); setEditing(null); }}
           />
@@ -136,16 +136,16 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
           <>
             <span className="va-search__value">
               <IMapPin size={16} style={{ color: 'var(--va-text-muted)' }} />
-              {values.depart || 'D’où partez-vous ?'}
+              {values.depart || t("D'où partez-vous ?")}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>Cliquer pour modifier</span>
+            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t('Cliquer pour modifier')}</span>
           </>
         )}
       </div>
 
       <button
         className="va-search__swap"
-        title="Inverser"
+        title={t('Inverser')}
         type="button"
         onClick={(e) => { e.stopPropagation(); onChange({ ...values, depart: values.arrivee, arrivee: values.depart }); }}
       >
@@ -154,12 +154,12 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
 
       {/* Arrivée */}
       <div className="va-search__field" onClick={(e) => { e.stopPropagation(); setEditing('arrivee'); }}>
-        <span className="va-search__label">Arrivée</span>
+        <span className="va-search__label">{t('Arrivée')}</span>
         {editing === 'arrivee' ? (
           <Autocomplete
             value={values.arrivee}
             type={type}
-            placeholder="Ville, gare, aéroport…"
+            placeholder={t('Ville, gare, aéroport…')}
             onChange={(v) => set('arrivee', v)}
             onPick={(it) => { set('arrivee', it.nom); setEditing(null); }}
           />
@@ -167,16 +167,16 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
           <>
             <span className="va-search__value">
               <IMapPin size={16} style={{ color: 'var(--va-text-muted)' }} />
-              {values.arrivee || 'Où allez-vous ?'}
+              {values.arrivee || t('Où allez-vous ?')}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>Cliquer pour modifier</span>
+            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t('Cliquer pour modifier')}</span>
           </>
         )}
       </div>
 
       {/* Date aller */}
       <div className="va-search__field" onClick={(e) => { e.stopPropagation(); setEditing('date'); }}>
-        <span className="va-search__label">{tripType === 'retour' ? 'Date retour' : roundTrip ? 'Date aller' : 'Date'}</span>
+        <span className="va-search__label">{tripType === 'retour' ? t('Date retour') : roundTrip ? t('Date aller') : t('Date')}</span>
         {editing === 'date' ? (
           <input
             type="date"
@@ -197,14 +197,14 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
               <ICalendar size={16} style={{ color: 'var(--va-text-muted)' }} />
               {dateLabel}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>Cliquer pour modifier</span>
+            <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t('Cliquer pour modifier')}</span>
           </>
         )}
       </div>
 
       {roundTrip && (
         <div className="va-search__field" onClick={(e) => { e.stopPropagation(); setEditing('dateRetour'); }}>
-          <span className="va-search__label">Date retour</span>
+          <span className="va-search__label">{t('Date retour')}</span>
           {editing === 'dateRetour' ? (
             <input
               type="date"
@@ -226,7 +226,7 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
                 <ICalendar size={16} style={{ color: 'var(--va-text-muted)' }} />
                 {retourLabel}
               </span>
-              <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>Cliquer pour modifier</span>
+              <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>{t('Cliquer pour modifier')}</span>
             </>
           )}
         </div>
@@ -238,13 +238,13 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
         style={{ position: 'relative' }}
         onClick={(e) => { e.stopPropagation(); setEditing(editing === 'passagers' ? null : 'passagers'); }}
       >
-        <span className="va-search__label">Voyageurs</span>
+        <span className="va-search__label">{t('Voyageurs')}</span>
         <span className="va-search__value">
           <IUsers size={16} style={{ color: 'var(--va-text-muted)' }} />
           {window.paxLabel(window.normalizePax(values))}
         </span>
         <span style={{ fontSize: 12, color: 'var(--va-text-muted)' }}>
-          {window.paxBreakdown(window.normalizePax(values)) || 'Cliquer pour modifier'}
+          {window.paxBreakdown(window.normalizePax(values)) || t('Cliquer pour modifier')}
         </span>
         {editing === 'passagers' && (
           <div
@@ -266,7 +266,7 @@ const SearchBarEditable = ({ values, onChange, onSearch, type }) => {
         onClick={(e) => { e.stopPropagation(); setEditing(null); onSearch(values); }}
       >
         <ISearch size={16} />
-        Rechercher
+        {t('Rechercher')}
       </button>
     </div>
     </div>

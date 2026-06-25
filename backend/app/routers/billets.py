@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -121,6 +121,7 @@ def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]
         trajet_id=trajet.id,
         numero_billet=generate_numero_billet(),
         siege=payload.siege,
+        nb_places=nb_places,
         prix_paye=payload.prix_paye if payload.prix_paye is not None else trajet.prix,
     )
     trajet.places_dispo -= nb_places
@@ -164,6 +165,7 @@ def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]
         pdf_bytes=pdf_bytes,
         montant=f"{billet.prix_paye:.2f} EUR",
         classe=classe_label,
+        lang=(payload.lang if payload.lang in ("fr", "en", "es") else "fr"),
     )
 
     # Indexation RAG du billet — le bot pourra le retrouver via similarité
@@ -175,7 +177,7 @@ def create_billet(payload: BilletCreate, db: Annotated[Session, Depends(get_db)]
             f"le {date_fr}. Arrivée prévue {trajet.date_arrivee.strftime('%d/%m/%Y à %H:%M')}. "
             f"Classe {classe_label}, siège {billet.siege or 'non attribué'}. "
             f"Prix payé : {billet.prix_paye:.2f} EUR. "
-            f"Nombre de places : {billet.nb_places}."
+            f"Nombre de places : {nb_places}."
         )
         rag.index_text(
             billet_text,
@@ -226,6 +228,37 @@ def access_billet(payload: BilletAccess, db: Annotated[Session, Depends(get_db)]
     return billet
 
 
+@router.post("/extract")
+async def extract_billet_from_pdf(
+    db: Annotated[Session, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    """Pièce jointe du chatbot : lit un billet PDF et renvoie son numéro.
+
+    On n'accepte que les billets délivrés par Voyage Assistant : le PDF doit
+    contenir un numéro TRV-AAAA-XXXX qui existe réellement en base. Aucune donnée
+    sensible n'est renvoyée (l'identité sera vérifiée ensuite dans le chat)."""
+    from app.services.billet_pdf import extract_billet_number_from_pdf
+
+    raw = await file.read()
+    if not raw or len(raw) > 10 * 1024 * 1024:  # garde-fou taille (10 Mo)
+        return {"found": False, "reason": "invalid_file"}
+
+    numero = extract_billet_number_from_pdf(raw)
+    if not numero:
+        return {"found": False, "reason": "no_number"}
+
+    billet = db.query(Billet).filter(Billet.numero_billet == numero).first()
+    if billet is None:
+        return {"found": False, "reason": "unknown", "numero_billet": numero}
+
+    t = billet.trajet
+    resume = None
+    if t is not None:
+        resume = f"{t.type.capitalize()} {t.compagnie} · {t.depart} → {t.arrivee}"
+    return {"found": True, "numero_billet": numero, "trajet_resume": resume}
+
+
 @router.post("/{numero_billet}/modifier", response_model=BilletOut)
 def modifier_billet(
     numero_billet: str,
@@ -245,13 +278,14 @@ def modifier_billet(
     if billet.statut != "confirme":
         raise HTTPException(status_code=400, detail="Billet non modifiable dans son statut actuel.")
 
+    places = billet.nb_places or 1
     nouveau = db.get(Trajet, payload.nouveau_trajet_id)
-    if nouveau is None or nouveau.statut != "actif" or nouveau.places_dispo <= 0:
+    if nouveau is None or nouveau.statut != "actif" or nouveau.places_dispo < places:
         raise HTTPException(status_code=400, detail="Nouveau trajet indisponible.")
 
     ancien = billet.trajet
-    ancien.places_dispo += 1
-    nouveau.places_dispo -= 1
+    ancien.places_dispo += places
+    nouveau.places_dispo -= places
     billet.trajet_id = nouveau.id
     billet.prix_paye = nouveau.prix
 
@@ -275,10 +309,10 @@ def annuler_billet(
     )
     if billet is None:
         raise HTTPException(status_code=403, detail="Identité non vérifiée.")
-    if billet.statut == "annule":
+    if billet.statut in ("annule", "rembourse"):
         raise HTTPException(status_code=400, detail="Billet déjà annulé.")
     billet.statut = "rembourse"
-    billet.trajet.places_dispo += 1
+    billet.trajet.places_dispo += billet.nb_places or 1
     db.commit()
     db.refresh(billet)
     return billet
