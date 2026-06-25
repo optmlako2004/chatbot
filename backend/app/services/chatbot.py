@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 
 import html
 import re
+import unicodedata
+
+
+def _norm(s: str) -> str:
+    """Minuscule sans accents, pour comparaisons robustes."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", (s or "").lower())
+        if unicodedata.category(c) != "Mn"
+    ).strip()
 
 GREETINGS = {"bonjour", "salut", "hello", "hey", "coucou", "bonsoir", "yo", "hi"}
 THANKS = {"merci", "thanks", "thx", "remercie"}
@@ -41,6 +50,12 @@ _SEARCH_KEYWORDS = (
     "partir pour", "partir en", "trouver un trajet", "trouver un voyage",
     "réserver un voyage", "reserver un voyage", "billet pour", "trajet pour",
     "voyage à", "voyager à",
+    # anglais
+    "i want to go", "i'd like to go", "i would like to go", "go to", "travel to",
+    "trip to", "ticket to", "fly to", "i want to travel", "search a trip", "find a trip",
+    # espagnol
+    "quiero ir a", "ir a", "me gustaría ir", "viajar a", "quiero viajar",
+    "billete para", "buscar un viaje", "un viaje a",
 )
 
 # Mode de transport -> type BDD, pour repérer le transport dans une phrase de recherche.
@@ -113,24 +128,127 @@ _ROUTE_KEYWORDS = (
     "dessert", "relie", "liaison", "navette",
 )
 
-# Mots indicateurs de destination dans la phrase ("je cherche un train à/pour/vers X")
-_DEST_PREPS = re.compile(
-    r"(?:pour|vers|à|a|jusqu['’]à|pour aller à|destination)\s+([A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40})",
+# Prépositions introduisant une DESTINATION (« aller à/en/au X », « vers X »…).
+# NB : « pour » seul est volontairement exclu (capte des compléments de but du
+# genre « pour les vacances »). On garde « pour aller à/en/au ».
+_DEST_PREP_RE = re.compile(
+    r"\b(?:pour aller (?:à|a|au|aux|en)|aller (?:à|a|au|aux|en)|jusqu['’]?(?:à|a)|"
+    r"destination(?: de)?|direction|vers|à|a|au|aux|en|pour|"
+    r"go(?:ing)? to|travel to|fly to|trip to|ticket to|head(?:ing)? to|"
+    r"ir a|viajar a|billete para)\s+",
     re.IGNORECASE,
 )
-_FROM_PREPS = re.compile(
-    r"(?:depuis|de|au départ de|à partir de|partant de)\s+([A-Za-zÀ-ÖØ-öø-ÿ' -]{2,40})",
+# Prépositions introduisant un DÉPART.
+_FROM_PREP_RE = re.compile(
+    r"\b(?:au départ de|à partir de|en partant de|partant de|depuis|from|desde|de|du|d['’])\s*",
     re.IGNORECASE,
 )
+
+# Mots qui ARRÊTENT la capture d'un nom de lieu (prépositions, liaisons, langues).
+_SCAN_STOP = {
+    "pour", "depuis", "pendant", "durant", "afin", "avec", "via", "car", "puis",
+    "ensuite", "et", "ou", "mais", "donc", "a", "au", "aux", "en", "vers", "jusqu",
+    "direction", "un", "une", "this", "for", "with", "and", "or", "to", "from",
+    "para", "desde", "con", "porque", "because", "y",
+    # démonstratifs / possessifs (ne font pas partie d'un nom de lieu)
+    "ce", "cet", "cette", "ces", "mon", "ma", "mes", "ton", "ta", "tes",
+    "notre", "nos", "votre", "vos", "leur", "leurs", "that", "these", "those",
+    "my", "mi", "mis", "este", "esta", "estos",
+}
+# Mots de temps / motif → ce n'est pas un lieu.
+_TIME_PURPOSE = {
+    "vacances", "vacance", "ete", "hiver", "printemps", "automne", "weekend",
+    "week-end", "semaine", "semaines", "mois", "jour", "jours", "journee",
+    "journees", "travail", "boulot", "affaires", "business", "demain",
+    "aujourdhui", "noel", "paques", "nuit", "soir", "matin", "pont", "ponts",
+    "summer", "winter", "spring", "autumn", "holiday", "holidays", "vacation",
+    "work", "verano", "invierno",
+}
+# Petits mots de liaison tolérés À L'INTÉRIEUR d'un nom (Le Havre, La Rochelle, Saint-…).
+_SMALL_INTERNAL = {"de", "du", "des", "le", "la", "les", "d", "saint", "sainte", "san", "santa", "el", "los", "las"}
+
+
+def _scan_place(rest: str) -> str | None:
+    """À partir du texte qui suit une préposition, isole un nom de lieu plausible
+    (s'arrête au premier mot de liaison / temps / transport)."""
+    place: list[str] = []
+    for raw in rest.split():
+        tok = raw.strip("?.,!;:«»\"'’()")
+        w = _norm(tok)
+        if not w:
+            break
+        if w in _SCAN_STOP or w in _TIME_PURPOSE or w in _TRANSPORT_MAP:
+            break
+        place.append(tok)
+        if len(place) >= 4:
+            break
+    while place and _norm(place[-1]) in _SMALL_INTERNAL:
+        place.pop()
+    out = " ".join(place).strip()
+    return out or None
 
 
 def _extract_destination(text: str) -> tuple[str | None, str | None]:
-    """Extrait (arrivee, depart) depuis une phrase en langage naturel."""
-    arr = _DEST_PREPS.search(text)
-    dep = _FROM_PREPS.search(text)
-    arrivee = arr.group(1).strip().rstrip("?.,!") if arr else None
-    depart  = dep.group(1).strip().rstrip("?.,!") if dep else None
+    """Extrait (arrivee, depart) depuis une phrase en langage naturel.
+
+    Robuste : ignore les compléments de but/temps (« pour les vacances d'été »),
+    gère « en/au/aux/vers » et les noms composés (Le Havre, La Rochelle)."""
+    arrivee = None
+    for m in _DEST_PREP_RE.finditer(text):
+        cand = _scan_place(text[m.end():])
+        if cand:
+            arrivee = cand
+            break
+    depart = None
+    for m in _FROM_PREP_RE.finditer(text):
+        cand = _scan_place(text[m.end():])
+        if cand:
+            depart = cand
+            break
     return arrivee, depart
+
+
+# Alias de pays courants (EN/ES → nom FR du catalogue _CITY_TO_PAYS).
+_COUNTRY_ALIASES = {
+    "espagne": "Espagne", "spain": "Espagne", "espana": "Espagne",
+    "france": "France",
+    "italie": "Italie", "italy": "Italie", "italia": "Italie",
+    "portugal": "Portugal",
+    "allemagne": "Allemagne", "germany": "Allemagne", "deutschland": "Allemagne", "alemania": "Allemagne",
+    "royaume-uni": "Royaume-Uni", "angleterre": "Royaume-Uni", "uk": "Royaume-Uni",
+    "england": "Royaume-Uni", "royaume uni": "Royaume-Uni",
+    "belgique": "Belgique", "belgium": "Belgique",
+    "pays-bas": "Pays-Bas", "netherlands": "Pays-Bas", "hollande": "Pays-Bas", "pays bas": "Pays-Bas",
+    "suisse": "Suisse", "switzerland": "Suisse",
+    "maroc": "Maroc", "morocco": "Maroc",
+    "etats-unis": "États-Unis", "usa": "États-Unis", "united states": "États-Unis", "etats unis": "États-Unis",
+}
+
+
+def _match_country(name: str) -> str | None:
+    """Si `name` désigne un pays, renvoie son nom FR (sinon None)."""
+    n = _norm(name)
+    if n in _COUNTRY_ALIASES:
+        return _COUNTRY_ALIASES[n]
+    try:
+        from app.routers.trajets import _CITY_TO_PAYS
+        pays_set = {_norm(p): p for p in _CITY_TO_PAYS.values()}
+        if n in pays_set:
+            return pays_set[n]
+    except Exception:
+        pass
+    return None
+
+
+def _cities_in_country(pays: str, n: int = 6) -> list[str]:
+    """Quelques villes du catalogue situées dans `pays` (pour suggestion)."""
+    try:
+        from app.routers.trajets import _CITY_TO_PAYS
+    except Exception:
+        return []
+    target = _norm(pays)
+    villes = [c.title() for c, p in _CITY_TO_PAYS.items() if _norm(p) == target]
+    return villes[:n]
 
 
 def _detect_transport(text: str) -> str | None:
@@ -1032,6 +1150,7 @@ def _run_search_flow(db: Session, context: dict, lang: str = "fr") -> dict:
     arrivee = (context.get("search_arrivee") or "").strip()
     depart = (context.get("search_depart") or "").strip()
 
+    # 1) Destination manquante → on la demande (on reste dans le flux).
     if not arrivee:
         context["awaiting"] = "search_dest"
         return {
@@ -1041,6 +1160,29 @@ def _run_search_flow(db: Session, context: dict, lang: str = "fr") -> dict:
             "tool_used": None,
             "results": [],
         }
+
+    # 2) Destination = un PAYS → on demande une ville précise (le départ est conservé).
+    pays = _match_country(arrivee)
+    if pays:
+        villes = _cities_in_country(pays)
+        context.pop("search_arrivee", None)
+        context["awaiting"] = "search_dest"
+        if villes:
+            answer = t(
+                "{pays} : dans quelle ville souhaitez-vous aller ? Par exemple : {villes}.",
+                lang, pays=pays, villes=", ".join(villes),
+            )
+        else:
+            answer = t("{pays} : dans quelle ville souhaitez-vous aller ?", lang, pays=pays)
+        return {
+            "answer": answer,
+            "quick_replies": [],
+            "context": context,
+            "tool_used": None,
+            "results": [],
+        }
+
+    # 3) Départ manquant → on le demande (on garde la destination).
     if not depart:
         context["awaiting"] = "search_depart"
         return {
@@ -1051,29 +1193,36 @@ def _run_search_flow(db: Session, context: dict, lang: str = "fr") -> dict:
             "results": [],
         }
 
+    # 4) Tout est là → recherche.
     results = _search_trajets_results(db, depart, arrivee, limit=8)
     if not results:
-        # Aucun résultat : on propose des alternatives au départ de la même ville.
+        # Aucun résultat : on propose des alternatives ET on RESTE en recherche
+        # (le départ est conservé) pour que l'utilisateur n'ait qu'à donner une
+        # autre destination.
         top = _query_top_destinations(db, depart)
-        suggestion = ""
-        if top:
-            suggestion = "\n\n" + top
+        suggestion = ("\n\n" + top) if top else ""
+        context.pop("search_arrivee", None)
+        context["awaiting"] = "search_dest"  # la prochaine réponse = nouvelle destination
         return {
             "answer": t(
-                "Je n'ai trouvé aucun trajet de {depart} à {arrivee}. "
-                "Voici quelques destinations populaires au départ de {depart} :",
+                "Je n'ai pas trouvé de trajet de {depart} à {arrivee}. "
+                "Voici des destinations possibles au départ de {depart} — "
+                "dites-moi laquelle vous intéresse :",
                 lang, depart=depart, arrivee=arrivee,
             ) + suggestion,
-            "quick_replies": [t(q, lang) for q in QUICK_REPLIES_HOME],
-            "context": {},
+            "quick_replies": [],
+            "context": context,
             "tool_used": "query_trajet",
             "results": [],
         }
 
+    # Succès : on garde le départ pour une éventuelle recherche enchaînée.
+    context.pop("awaiting", None)
+    context.pop("search_arrivee", None)
     return {
         "answer": t("Voici les trajets de {depart} à {arrivee} :", lang, depart=depart, arrivee=arrivee),
         "quick_replies": [],
-        "context": {},
+        "context": context,
         "tool_used": "query_trajet",
         "results": results,
     }

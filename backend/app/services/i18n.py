@@ -143,6 +143,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Here are the trips from {depart} to {arrivee}:",
         "Je n'ai trouvé aucun trajet de {depart} à {arrivee}. Voici quelques destinations populaires au départ de {depart} :":
             "I couldn't find any trip from {depart} to {arrivee}. Here are some popular destinations departing from {depart}:",
+        "{pays} : dans quelle ville souhaitez-vous aller ? Par exemple : {villes}.":
+            "{pays}: which city would you like to go to? For example: {villes}.",
+        "{pays} : dans quelle ville souhaitez-vous aller ?":
+            "{pays}: which city would you like to go to?",
+        "Je n'ai pas trouvé de trajet de {depart} à {arrivee}. Voici des destinations possibles au départ de {depart} — dites-moi laquelle vous intéresse :":
+            "I couldn't find a trip from {depart} to {arrivee}. Here are possible destinations from {depart} — tell me which one interests you:",
         "Pour confirmer que c'est bien vous, quelle est votre date de naissance ?":
             "To confirm it's really you, what is your date of birth?",
         "Cette date de naissance ne correspond pas à ce billet. Pour des raisons de sécurité, je ne peux pas donner suite. Réessayez (par exemple 14/03/1995) ou contactez le service client.":
@@ -314,6 +320,12 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
             "Estos son los trayectos de {depart} a {arrivee}:",
         "Je n'ai trouvé aucun trajet de {depart} à {arrivee}. Voici quelques destinations populaires au départ de {depart} :":
             "No he encontrado ningún trayecto de {depart} a {arrivee}. Aquí tiene algunos destinos populares con salida desde {depart}:",
+        "{pays} : dans quelle ville souhaitez-vous aller ? Par exemple : {villes}.":
+            "{pays}: ¿a qué ciudad desea ir? Por ejemplo: {villes}.",
+        "{pays} : dans quelle ville souhaitez-vous aller ?":
+            "{pays}: ¿a qué ciudad desea ir?",
+        "Je n'ai pas trouvé de trajet de {depart} à {arrivee}. Voici des destinations possibles au départ de {depart} — dites-moi laquelle vous intéresse :":
+            "No encontré ningún trayecto de {depart} a {arrivee}. Estos son destinos posibles desde {depart}: dígame cuál le interesa:",
         "Pour confirmer que c'est bien vous, quelle est votre date de naissance ?":
             "Para confirmar que es usted, ¿cuál es su fecha de nacimiento?",
         "Cette date de naissance ne correspond pas à ce billet. Pour des raisons de sécurité, je ne peux pas donner suite. Réessayez (par exemple 14/03/1995) ou contactez le service client.":
