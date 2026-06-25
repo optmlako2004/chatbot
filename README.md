@@ -15,7 +15,7 @@ Encadrement : **Bilal Faye** (LIPN, CNRS UMR 7030).
 | Membre | Rôle |
 |---|---|
 | **Ako Christian** | IA conversationnelle & RAG · Déploiement |
-| **Carl Similien** | Back-end & intégration (API, base de données) |
+| **Carld Similien** | Back-end & intégration (API, base de données) |
 | **Noé Cervera** | Modèles & évaluation (embeddings, reranker, NER) |
 | **Dhanoush Kessavane** | Front-end · Design · Documentation |
 
@@ -527,7 +527,7 @@ Projet **SAE2 BUT3**, promotion 2025-2026 · Encadrement : **Bilal Faye**
 | Membre | Rôle |
 |---|---|
 | **Ako Christian** | IA conversationnelle & RAG · Déploiement |
-| **Carl Similien** | Back-end & intégration (API, base de données) |
+| **Carld Similien** | Back-end & intégration (API, base de données) |
 | **Noé Cervera** | Modèles & évaluation (embeddings, reranker, NER) |
 | **Dhanoush Kessavane** | Front-end · Design · Documentation |
 
