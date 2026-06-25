@@ -44,3 +44,6 @@ maintenance-applicative-todolist/
 sentiment-chatbot-fr/
 sentiment-chatbot-rnn-fr/
 transcription-audio-fr/
+
+# Sources LaTeX : gardées en local, seuls les PDF sont sur le dépôt
+*.tex
