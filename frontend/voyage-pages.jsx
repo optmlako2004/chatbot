@@ -596,7 +596,7 @@ const ResultsPage = ({ go, ctx }) => {
                 max={counts.priceMax}
                 value={budgetMax !== null ? budgetMax : counts.priceMax}
                 onChange={e => setBudgetMax(Number(e.target.value))}
-                style={{ width: '100%', accentColor: 'var(--va-primary)', cursor: 'pointer' }}
+                style={{ width: '100%', accentColor: 'var(--va-accent)', cursor: 'pointer' }}
               />
               <div className="va-range__bounds">
                 <span><strong>{counts.priceMin} €</strong></span>
