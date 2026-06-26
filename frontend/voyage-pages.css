@@ -335,6 +335,9 @@
   padding: 0 6px;
   color: var(--va-text-muted);
 }
+.va-route__path-line + div {
+  margin-top: 5px;
+}
 .va-route__meta {
   text-align: right;
   display: flex;
